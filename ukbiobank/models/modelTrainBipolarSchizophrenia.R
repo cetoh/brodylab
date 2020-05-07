@@ -31,32 +31,53 @@ no_bipolar <- all_data[is.na(all_data[, "datereported"]),]
 schiz <- all_data[!is.na(all_data[, "datereported2"]),]
 no_schiz <- all_data[is.na(all_data[, "datereported2"]),]
 
-# As an age control we will only look at individuals born within the same time as 
-# the Bipolar patients for our non Bipolar patients
-no_bipolar <- subset(no_bipolar, no_bipolar$yearBorn < max(bipolar$yearBorn))
-no_bipolar <- subset(no_bipolar, no_bipolar$yearBorn > min(bipolar$yearBorn))
+#Get non Bipolar Patients
+no_bipolar_initial <- all_data[is.na(all_data[, "datereported"]),]
 
-# As an age control we will only look at individuals born within the same time as 
-# the Schizophrenia patients for our non Schizophrenia patients
-no_schiz <- subset(no_schiz, no_schiz$yearBorn < max(schiz$yearBorn))
-no_schiz <- subset(no_schiz, no_schiz$yearBorn > min(schiz$yearBorn))
+# Randomly get non Bipolar patients for controls so that there is an equal amount based on age
+# This will ensure that the controls are age-matched to the Bipolar sample
+no_bipolar <- data.frame(matrix(ncol = ncol(no_bipolar_initial), nrow = 0))
+colnames(no_bipolar) <- colnames(no_bipolar_initial)
+for (i in 1:length(alz_age)) {
+  temp <- alz_age[i]
+  age_check <- as.numeric(names(temp))
+  number_cases <- as.numeric(unname(temp))
+  possible_controls <- no_bipolar_initial[no_bipolar_initial$yearBorn == age_check,]
+  no_bipolar <- rbind(no_bipolar, possible_controls[sample(nrow(possible_controls), number_cases, replace = TRUE), ])
+}
 
+#Get non Bipolar Patients
+no_schiz_initial <- all_data[is.na(all_data[, "datereported2"]),]
+
+# Randomly get non Bipolar patients for controls so that there is an equal amount based on age
+# This will ensure that the controls are age-matched to the Bipolar sample
+no_schiz <- data.frame(matrix(ncol = ncol(no_schiz_initial), nrow = 0))
+colnames(no_schiz) <- colnames(no_schiz_initial)
+for (i in 1:length(alz_age)) {
+  temp <- alz_age[i]
+  age_check <- as.numeric(names(temp))
+  number_cases <- as.numeric(unname(temp))
+  possible_controls <- no_schiz_initial[no_schiz_initial$yearBorn == age_check,]
+  no_schiz <- rbind(no_schiz, possible_controls[sample(nrow(possible_controls), number_cases, replace = TRUE), ])
+}
+
+#Set Response To Boolean
 bipolar$datereported <- TRUE
 no_bipolar$datereported <- FALSE
 
 schiz$datereported2 <- TRUE
 no_schiz$datereported2 <- FALSE
 
-ind <- sample(c(TRUE, FALSE), nrow(bipolar), replace=TRUE, prob=c(0.7, 0.3)) # Random split
-ind <- sample(c(TRUE, FALSE), nrow(schiz), replace=TRUE, prob=c(0.7, 0.3)) # Random split
+ind <- sample(c(TRUE, FALSE), nrow(bipolar), replace = TRUE, prob=c(0.7, 0.3)) # Random split
+ind <- sample(c(TRUE, FALSE), nrow(schiz), replace = TRUE, prob=c(0.7, 0.3)) # Random split
 
 train <- bipolar[ind, ]
 validate <- bipolar[!ind, ]
 train2 <- schiz[ind, ]
 validate2 <- schiz[!ind, ]
 
-controls <- no_bipolar[sample(nrow(no_bipolar), nrow(bipolar)), ] # Randomly get controls
-controls2 <- no_schiz[sample(nrow(no_schiz), nrow(schiz)), ] # Randomly get controls
+controls <- no_bipolar[sample(nrow(no_bipolar), nrow(bipolar), replace = TRUE), ] # Randomly get controls
+controls2 <- no_schiz[sample(nrow(no_schiz), nrow(schiz), replace = TRUE), ] # Randomly get controls
 
 train_controls <- controls[ind, ]
 validate_controls <- controls[!ind, ]
@@ -83,8 +104,8 @@ train2 <- train2[,!names(train2) %in% c("ids", "sex", "behavior")]
 validate2 <- validate2[,!names(validate2) %in% c("ids", "sex", "behavior")]
 
 # Free up data 
-rm(no_bipolar, bipolar, schiz, no_schiz, controls, train_controls, validate_controls, train_controls2, validate_controls2)
-rm(my_data, my_ukb_data, my_ukb_data_cancer, my_data_age)
+rm(no_bipolar, bipolar, schiz, no_schiz, controls, controls2, train_controls, validate_controls, train_controls2, validate_controls2)
+rm(my_data, my_ukb_data, my_ukb_data_cancer, my_data_age, possible_controls, no_bipolar_initial, no_schiz_initial)
 
 # Load data into h2o
 

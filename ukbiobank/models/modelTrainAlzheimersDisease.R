@@ -75,7 +75,7 @@ train <- train[,!names(train) %in% c("ids","datereported")]
 validate <- validate[,!names(train) %in% c("ids","datereported")]
 
 # Free up data 
-rm(no_alzheimers, alzheimers, controls, train_controls, validate_controls)
+rm(no_alzheimers, alzheimers, controls, train_controls, validate_controls, no_alzheimers_initial)
 rm(my_data, my_ukb_data, condensed, my_ukb_data_cancer, my_data_age)
 
 # Load data into h2o

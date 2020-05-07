@@ -26,6 +26,9 @@ all_data <- merge(all_data, my_data_age, by.x = "ids", by.y = "eid")
 # Get Alzheimer's patients
 alzheimers <- all_data[!is.na(all_data[, "sourcereported"]),]
 
+# Get breakdown of Alzheimer's patients by age
+alz_age <- table(alzheimers$yearBorn)
+
 # As an age control we will only look at individuals born within the same time as the Alzheimer's patients for our non AD patients
 all_data <- subset(all_data, all_data$yearBorn < max(alzheimers$yearBorn))
 all_data <- subset(all_data, all_data$yearBorn > min(alzheimers$yearBorn))

@@ -25,11 +25,19 @@ my_data_age <- select(my_ukb_data_cancer, eid, yearBorn = year_of_birth_f34_0_0)
 all_data <- merge(condensed, my_data, by.x = "ids", by.y = "eid")
 all_data <- merge(all_data, my_data_age, by.x = "ids", by.y = "eid")
 
+# Get bipolar patients
 bipolar <- all_data[!is.na(all_data[, "datereported"]),]
 no_bipolar <- all_data[is.na(all_data[, "datereported"]),]
 
+# Get breakdown of Bipolar patients by age
+bipolar_age <- table(bipolar$yearBorn)
+
+# Get schizophrenia patients
 schiz <- all_data[!is.na(all_data[, "datereported2"]),]
 no_schiz <- all_data[is.na(all_data[, "datereported2"]),]
+
+# Get breakdown of Schizophrenia patients by age
+schiz_age <- table(schiz$yearBorn)
 
 #Get non Bipolar Patients
 no_bipolar_initial <- all_data[is.na(all_data[, "datereported"]),]
@@ -38,8 +46,8 @@ no_bipolar_initial <- all_data[is.na(all_data[, "datereported"]),]
 # This will ensure that the controls are age-matched to the Bipolar sample
 no_bipolar <- data.frame(matrix(ncol = ncol(no_bipolar_initial), nrow = 0))
 colnames(no_bipolar) <- colnames(no_bipolar_initial)
-for (i in 1:length(alz_age)) {
-  temp <- alz_age[i]
+for (i in 1:length(bipolar_age)) {
+  temp <- bipolar_age[i]
   age_check <- as.numeric(names(temp))
   number_cases <- as.numeric(unname(temp))
   possible_controls <- no_bipolar_initial[no_bipolar_initial$yearBorn == age_check,]
@@ -53,8 +61,8 @@ no_schiz_initial <- all_data[is.na(all_data[, "datereported2"]),]
 # This will ensure that the controls are age-matched to the Bipolar sample
 no_schiz <- data.frame(matrix(ncol = ncol(no_schiz_initial), nrow = 0))
 colnames(no_schiz) <- colnames(no_schiz_initial)
-for (i in 1:length(alz_age)) {
-  temp <- alz_age[i]
+for (i in 1:length(schiz_age)) {
+  temp <- schiz_age[i]
   age_check <- as.numeric(names(temp))
   number_cases <- as.numeric(unname(temp))
   possible_controls <- no_schiz_initial[no_schiz_initial$yearBorn == age_check,]
@@ -125,6 +133,10 @@ response <- "datereported"
 #Get Predictors
 predictors <- colnames(train)
 predictors <- predictors[! predictors %in% response] #Response cannot be a predictor
+predictors <- predictors[! predictors %in% "sourcereported"] #Remove other predictors that are irrelevant
+predictors <- predictors[! predictors %in% "datereported2"] #Remove other predictors that are irrelevant
+predictors <- predictors[! predictors %in% "sourcereported2"] #Remove other predictors that are irrelevant
+predictors <- predictors[! predictors %in% "yearBorn"] #Remove other predictors that are irrelevant
 model <- h2o.automl(x = predictors,
                     y = response,
                     training_frame = train.hex,
@@ -137,15 +149,21 @@ leader <- model@leader
 auc=h2o.auc(leader, train=FALSE, xval=TRUE)
 
 # plot out the ROC.  We type out the tissue and AUC at the top of the ROC.
-plot(h2o.performance(leader,train=FALSE, xval=TRUE),type='roc',main=paste("Bipolar Disease", auc))
+plot(h2o.performance(leader,train=FALSE, xval=TRUE),type='roc',main=paste("Bipolar Disorder", auc))
 
 # Print performance info of leader
 leader@algorithm
 h2o.performance(leader,train=FALSE, xval=TRUE)
 
 response2 <- "datereported2"
-
-model <- h2o.automl(x = predictors,
+#Get Predictors
+predictors2 <- colnames(train2)
+predictors2 <- predictors2[! predictors2 %in% response] #Response cannot be a predictor
+predictors2 <- predictors2[! predictors2 %in% "sourcereported2"] #Remove other predictors that are irrelevant
+predictors2 <- predictors2[! predictors2 %in% "datereported"] #Remove other predictors that are irrelevant
+predictors2 <- predictors2[! predictors2 %in% "sourcereported"] #Remove other predictors that are irrelevant
+predictors2 <- predictors2[! predictors2 %in% "yearBorn"] #Remove other predictors that are irrelevant
+model <- h2o.automl(x = predictors2,
                     y = response2,
                     training_frame = train2.hex,
                     validation_frame = validate2.hex,

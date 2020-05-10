@@ -64,15 +64,15 @@ controldata$cancer_selfreported <- FALSE
 
 # As an age control we will only look at individuals born within the same time as 
 # the breast cancer patients for our non breast cancer patients
-controldata <- subset(controldata, controldata$yearBorn < max(cancerdata$yearBorn))
-controldata <- subset(controldata, controldata$yearBorn > min(cancerdata$yearBorn))
+#controldata <- subset(controldata, controldata$yearBorn < max(cancerdata$yearBorn))
+#controldata <- subset(controldata, controldata$yearBorn > min(cancerdata$yearBorn))
 
 #Split for training and valdiation
 ind <- sample(c(TRUE, FALSE), nrow(cancerdata), replace=TRUE, prob=c(0.7, 0.3)) # Random split
 train <- cancerdata[ind, ]
 validate <- cancerdata[!ind,]
 
-controls <- controldata[sample(nrow(controldata), nrow(cancerdata)), ] # Randomly get controls
+controls <- controldata[sample(nrow(controldata), nrow(cancerdata), replace = TRUE), ] # Randomly get controls
 
 train_controls <- controls[ind, ]
 validate_controls <- controls[!ind, ]
@@ -110,6 +110,11 @@ response <- "cancer_selfreported"
 #Get Predictors
 predictors <- colnames(train)
 predictors <- predictors[! predictors %in% response] #Response cannot be a predictor
+predictors <- predictors[! predictors %in% "yearBorn"] #Response cannot be a predictor
+predictors <- predictors[! predictors %in% "sex"] #Response cannot be a predictor
+predictors <- predictors[! predictors %in% "behavior"] #Response cannot be a predictor
+predictors <- predictors[! predictors %in% "icd9_0"] #Response cannot be a predictor
+predictors <- predictors[! predictors %in% "icd9_1"] #Response cannot be a predictor
 model <- h2o.automl(x = predictors,
                     y = response,
                     training_frame = train.hex,

@@ -204,8 +204,8 @@ validate <- validate[,!names(validate) %in% c("ids","datereported")]
 combined_data <- combined_data[,!names(combined_data) %in% c("ids","datereported")]
 
 # Free up data 
-rm(no_alzheimers, alzheimers, controls, train_controls, validate_controls)
-rm(my_data, my_ukb_data, condensed2, my_ukb_data_cancer, my_data_age)
+rm(no_alzheimers, alzheimers, controls, train_controls, validate_controls, combined_data, combined.hex)
+rm(my_data, my_ukb_data, condensed2, my_ukb_data_cancer, my_data_age, all_data)
 
 # Load data into h2o
 

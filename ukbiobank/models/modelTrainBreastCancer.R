@@ -33,6 +33,7 @@ controldata <- all_data %>%
     ) %>%  #include only those cases that don't say anything that looks like cancer 
     select(ids,
            sex=sex_f31_0_0,
+           yearBorn,
            cancer_selfreported=cancer_code_selfreported_f20001_0_0, 
            behavior=behaviour_of_cancer_tumour_f40012_0_0,
            icd9_0=type_of_cancer_icd9_f40013_0_0,
@@ -51,6 +52,7 @@ cancerdata <- all_data %>%
             !is.na(type_of_cancer_icd9_f40013_1_0)))) %>% 
     select(ids,
            sex=sex_f31_0_0,
+           yearBorn,
            cancer_selfreported=cancer_code_selfreported_f20001_0_0, 
            behavior=behaviour_of_cancer_tumour_f40012_0_0,
            icd9_0=type_of_cancer_icd9_f40013_0_0,
@@ -62,17 +64,30 @@ cancerdata <- all_data %>%
 cancerdata$cancer_selfreported <- TRUE
 controldata$cancer_selfreported <- FALSE
 
-# As an age control we will only look at individuals born within the same time as 
-# the breast cancer patients for our non breast cancer patients
-#controldata <- subset(controldata, controldata$yearBorn < max(cancerdata$yearBorn))
-#controldata <- subset(controldata, controldata$yearBorn > min(cancerdata$yearBorn))
+# Get breakdown of Schizophrenia patients by age
+cancer_age <- table(cancerdata$yearBorn)
+
+#Get non Bipolar Patients
+no_cancer_initial <- controldata
+
+# Randomly get non Bipolar patients for controls so that there is an equal amount based on age
+# This will ensure that the controls are age-matched to the Bipolar sample
+no_cancer <- data.frame(matrix(ncol = ncol(no_cancer_initial), nrow = 0))
+colnames(no_cancer) <- colnames(no_cancer_initial)
+for (i in 1:length(cancer_age)) {
+    temp <- cancer_age[i]
+    age_check <- as.numeric(names(temp))
+    number_cases <- as.numeric(unname(temp))
+    possible_controls <- no_cancer_initial[no_cancer_initial$yearBorn == age_check,]
+    no_cancer <- rbind(no_cancer, possible_controls[sample(nrow(possible_controls), number_cases, replace = TRUE), ])
+}
 
 #Split for training and valdiation
 ind <- sample(c(TRUE, FALSE), nrow(cancerdata), replace=TRUE, prob=c(0.7, 0.3)) # Random split
 train <- cancerdata[ind, ]
 validate <- cancerdata[!ind,]
 
-controls <- controldata[sample(nrow(controldata), nrow(cancerdata), replace = TRUE), ] # Randomly get controls
+controls <- no_cancer[sample(nrow(no_cancer), nrow(cancerdata), replace = TRUE), ] # Randomly get controls
 
 train_controls <- controls[ind, ]
 validate_controls <- controls[!ind, ]
@@ -91,8 +106,8 @@ train <- train[,!names(train) %in% c("ids")]
 validate <- validate[,!names(validate) %in% c("ids")]
 
 # Free up data 
-rm(controldata, cancerdata, controls, train_controls, validate_controls)
-rm(my_data, my_ukb_data_cancer)
+rm(controldata, cancerdata, no_cancer_initial, controls, train_controls, validate_controls)
+rm(my_data, my_ukb_data_cancer, all_data)
 
 # Load data into h2o
 

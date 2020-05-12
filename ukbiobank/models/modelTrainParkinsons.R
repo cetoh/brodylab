@@ -72,8 +72,8 @@ train <- train[,!names(train) %in% c("ids", "sex", "behavior")]
 validate <- validate[,!names(validate) %in% c("ids", "sex", "behavior")]
 
 # Free up data 
-rm(no_parkinsons, parkinsons, controls, train_controls, validate_controls)
-rm(my_data, my_ukb_data, my_ukb_data_cancer, my_data_age)
+rm(no_parkinsons, no_parkinsons_initial, parkinsons, controls, train_controls, validate_controls)
+rm(my_data, my_ukb_data, my_ukb_data_cancer, my_data_age, all_data)
 
 # Load data into h2o
 

@@ -64,14 +64,14 @@ cancerdata <- all_data %>%
 cancerdata$cancer_selfreported <- TRUE
 controldata$cancer_selfreported <- FALSE
 
-# Get breakdown of Schizophrenia patients by age
+# Get breakdown of Breast Cancer patients by age
 cancer_age <- table(cancerdata$yearBorn)
 
-#Get non Bipolar Patients
+#Get non Breast Cancer
 no_cancer_initial <- controldata
 
-# Randomly get non Bipolar patients for controls so that there is an equal amount based on age
-# This will ensure that the controls are age-matched to the Bipolar sample
+# Randomly get non Breast Cancer patients for controls so that there is an equal amount based on age
+# This will ensure that the controls are age-matched to the Breast Cancer sample
 no_cancer <- data.frame(matrix(ncol = ncol(no_cancer_initial), nrow = 0))
 colnames(no_cancer) <- colnames(no_cancer_initial)
 for (i in 1:length(cancer_age)) {

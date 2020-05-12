@@ -25,14 +25,23 @@ all_data <- merge(all_data, my_data_age, by.x = "ids", by.y = "eid")
 # Get Asthma Patients
 asthma <- all_data[which(all_data$asthma == 1),]
 
-# As an age control we will only look at individuals born within the same time as 
-# the Asthma patients for our non Asthma patients
-maxYear <- max(asthma$yearBorn)
-all_data <- subset(all_data, all_data$yearBorn < maxYear)
-minYear <- min(asthma$yearBorn)
-all_data <- subset(all_data, all_data$yearBorn > minYear)
+# Get breakdown of Schizophrenia patients by age
+asthma_age <- table(asthma$yearBorn)
 
-no_asthma <- all_data[which(all_data$asthma != 1),]
+#Get non Bipolar Patients
+no_asthma_initial <- all_data[is.na(all_data[, "asthma"]),]
+
+# Randomly get non Bipolar patients for controls so that there is an equal amount based on age
+# This will ensure that the controls are age-matched to the Bipolar sample
+no_asthma <- data.frame(matrix(ncol = ncol(no_asthma_initial), nrow = 0))
+colnames(no_asthma) <- colnames(no_asthma_initial)
+for (i in 1:length(asthma_age)) {
+  temp <- asthma_age[i]
+  age_check <- as.numeric(names(temp))
+  number_cases <- as.numeric(unname(temp))
+  possible_controls <- no_asthma_initial[no_asthma_initial$yearBorn == age_check,]
+  no_asthma <- rbind(no_asthma, possible_controls[sample(nrow(possible_controls), number_cases, replace = TRUE), ])
+}
 
 asthma$asthma <- TRUE
 no_asthma$asthma <- FALSE
@@ -62,7 +71,7 @@ validate <- validate[,!names(validate) %in% c("ids", "sex", "behavior")]
 
 # Free up data 
 rm(no_asthma, asthma, controls, train_controls, validate_controls)
-rm(my_data, my_ukb_data, my_ukb_data_cancer, my_data_age, maxYear, minYear)
+rm(my_data, my_ukb_data, my_ukb_data_cancer, my_data_age)
 
 # Load data into h2o
 
@@ -80,6 +89,7 @@ response <- "asthma"
 #Get Predictors
 predictors <- colnames(train)
 predictors <- predictors[! predictors %in% response] #Response cannot be a predictor
+predictors <- predictors[! predictors %in% "yearBorn"] #Response cannot be a predictor
 model <- h2o.automl(x = predictors,
                     y = response,
                     training_frame = train.hex,

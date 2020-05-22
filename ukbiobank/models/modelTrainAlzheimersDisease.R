@@ -495,7 +495,7 @@ h2o.shutdown(prompt = TRUE)
 # Preallocate vector for aucs
 rm(results)
 results <- c()
-numModels <- 10
+numModels <- 100
 maxRuntime <- 300 # This is in seconds
 
 # Run 100 expirements or train 100 Auto ML models using randomized set of training data each time
@@ -578,7 +578,6 @@ for (i in 1:numModels) {
   #Remove unnecessary rows
   train <- train[,!names(train) %in% c("ids","datereported")]
   validate <- validate[,!names(validate) %in% c("ids","datereported")]
-  combined_data <- combined_data[,!names(combined_data) %in% c("ids","datereported")]
   
   # Load data into h2o
   
@@ -649,7 +648,7 @@ h2o.shutdown(prompt = TRUE)
 # Preallocate vector for aucs
 rm(results)
 results <- c()
-numModels <- 10
+numModels <- 100
 maxRuntime <- 360 # This is in seconds
 
 # Run 100 expirements or train 100 Auto ML models using randomized set of training data each time
@@ -732,7 +731,6 @@ for (i in 1:numModels) {
   #Remove unnecessary rows
   train <- train[,!names(train) %in% c("ids","datereported")]
   validate <- validate[,!names(validate) %in% c("ids","datereported")]
-  combined_data <- combined_data[,!names(combined_data) %in% c("ids","datereported")]
   
   # Load data into h2o
   

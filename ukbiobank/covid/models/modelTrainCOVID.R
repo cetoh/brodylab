@@ -1,12 +1,16 @@
 library(h2o)
 library(ukbtools)
 library(tidyverse)
+library(dplyr)
 
 ## Create training and validation frames
 condensed <- read.csv("/data/ukbiobank/ukb_l2r_ids_allchr_condensed_4splits.txt", sep = " ")
 
 # COVID data
 covid_results <- read.csv("/data/ukbiobank/covid-19/covid19_result.txt", sep = "\t")
+covid_results <- covid_results[covid_results$result == 1, ]
+covid_results <- covid_results[,!names(covid_results) %in% c("datereported", "specdate", "spectype", "laboratory", "origin")]
+covid_results <- unique(covid_results)
 
 # Get age related information
 my_ukb_data_cancer <- ukb_df("ukb29274", path = "/data/ukbiobank/cancer")
@@ -18,6 +22,7 @@ all_data <- merge(condensed, my_data_age, by.x = "ids", by.y = "eid")
 # Get COVID patients
 covid_data <- merge(all_data, covid_results, by.x = "ids", by.y = "eid")
 covid <- covid_data[covid_data$result == 1,]
+covid <- unique(covid)
 
 # Get breakdown of COVID patients' age
 covid_age <- table(covid$yearBorn)
@@ -42,6 +47,7 @@ for (i in 1:length(covid_age)) {
   possible_controls <- no_covid_initial[no_covid_initial$yearBorn == age_check,]
   no_covid <- rbind(no_covid, possible_controls[sample(nrow(possible_controls), number_cases, replace = TRUE), ])
 }
+no_covid <- unique(no_covid)
 
 ind <- sample(c(TRUE, FALSE), nrow(covid), replace=TRUE, prob=c(0.7, 0.3)) # Random split
 
@@ -53,7 +59,7 @@ train <- train[,!names(train) %in% c("datereported", "specdate", "spectype", "la
 validate <- validate[,!names(validate) %in% c( "datereported", "specdate", "spectype", "laboratory", "origin")]
 
 
-controls <- no_covid[sample(nrow(no_covid), nrow(covid), replace = TRUE), ] # Randomly get controls
+controls <- no_covid # get controls
 controls['result'] = 0
 
 train_controls <- controls[ind, ]
@@ -73,7 +79,6 @@ validate$result <- as.factor(validate$result)
 #Remove unnecessary rows
 train <- train[,!names(train) %in% c("ids")]
 validate <- validate[,!names(validate) %in% c( "ids")]
-
 
 # Free up data 
 rm(no_covid, covid, controls, train_controls, validate_controls)

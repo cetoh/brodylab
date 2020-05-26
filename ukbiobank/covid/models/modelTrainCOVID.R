@@ -161,6 +161,9 @@ condensed <- read.csv("/data/ukbiobank/ukb_l2r_ids_allchr_condensed_4splits.txt"
 
 # COVID data
 covid_results <- read.csv("/data/ukbiobank/covid-19/covid19_result.txt", sep = "\t")
+covid_results <- covid_results[covid_results$result == 1, ]
+covid_results <- covid_results[,!names(covid_results) %in% c("datereported", "specdate", "spectype", "laboratory", "origin")]
+covid_results <- unique(covid_results)
 
 # Get age related information
 my_ukb_data_cancer <- ukb_df("ukb29274", path = "/data/ukbiobank/cancer")

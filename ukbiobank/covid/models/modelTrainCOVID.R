@@ -4,13 +4,14 @@ library(tidyverse)
 library(dplyr)
 
 ## Create training and validation frames
+# Get CNV Scale Data
 condensed <- read.csv("/data/ukbiobank/ukb_l2r_ids_allchr_condensed_4splits.txt", sep = " ")
 
 # COVID data
 covid_results <- read.csv("/data/ukbiobank/covid-19/covid19_result.txt", sep = "\t")
-covid_results <- covid_results[covid_results$result == 1, ]
-covid_results <- covid_results[,!names(covid_results) %in% c("datereported", "specdate", "spectype", "laboratory", "origin")]
-covid_results <- unique(covid_results)
+covid_results <- covid_results[covid_results$result == 1, ] # Get positive results
+covid_results <- covid_results[,!names(covid_results) %in% c("datereported", "specdate", "spectype", "laboratory", "origin")] # Remove unnecessary columns
+covid_results <- unique(covid_results) # Remove duplicate tests
 
 # Get age related information
 my_ukb_data_cancer <- ukb_df("ukb29274", path = "/data/ukbiobank/cancer")
@@ -36,7 +37,7 @@ no_covid_initial <- all_data[!all_data$ids %in% covid$ids,]
 
 # Randomly get non COVID patients for controls so that there is an equal amount based on age
 # This will ensure that the controls are age-matched to the COVID Disease sample
-# For example there are 5 patients born 1937 who have covid so we will randomly grab 5 other 
+# For example if there are 5 patients born 1937 who have covid we will randomly grab 5 other 
 # patients born 1937 who do not have covid
 no_covid <- data.frame(matrix(ncol = ncol(no_covid_initial), nrow = 0))
 colnames(no_covid) <- colnames(no_covid_initial)
@@ -47,10 +48,11 @@ for (i in 1:length(covid_age)) {
   possible_controls <- no_covid_initial[no_covid_initial$yearBorn == age_check,]
   no_covid <- rbind(no_covid, possible_controls[sample(nrow(possible_controls), number_cases, replace = TRUE), ])
 }
-no_covid <- unique(no_covid)
+no_covid <- unique(no_covid) # Remove duplicates if they exist
 
 ind <- sample(c(TRUE, FALSE), nrow(covid), replace=TRUE, prob=c(0.7, 0.3)) # Random split
 
+# Split COVID patients into train and validate
 train <- covid[ind, ]
 validate <- covid[!ind, ]
 
@@ -58,10 +60,10 @@ validate <- covid[!ind, ]
 train <- train[,!names(train) %in% c("datereported", "specdate", "spectype", "laboratory", "origin")]
 validate <- validate[,!names(validate) %in% c( "datereported", "specdate", "spectype", "laboratory", "origin")]
 
-
 controls <- no_covid # get controls
-controls['result'] = 0
+controls['result'] = 0 # add column indicating these patients do not have COVID
 
+# Split control patients into train and validate
 train_controls <- controls[ind, ]
 validate_controls <- controls[!ind, ]
 
@@ -76,7 +78,7 @@ validate$result <- as.logical(validate$result)
 train$result <- as.factor(train$result)
 validate$result <- as.factor(validate$result)
 
-#Remove unnecessary rows
+#Remove unnecessary columns
 train <- train[,!names(train) %in% c("ids")]
 validate <- validate[,!names(validate) %in% c( "ids")]
 
@@ -124,7 +126,7 @@ h2o.performance(leader,train=FALSE, xval=TRUE)
 # Attempt predict on validation frame
 prediction <- h2o.predict(object = leader, newdata = validate.hex)
 as.data.frame(prediction)
-summary(prediction)
+summary(prediction, exact_quantiles = TRUE)
 
 validation.perf <- h2o.performance(leader, train = FALSE, xval=TRUE, newdata = validate.hex)
 validation.perf.auc <- validation.perf@metrics$AUC
@@ -144,10 +146,10 @@ rm(results, predictions, model_types)
 results <- c()
 predictions <- c()
 model_types <- c()
-numModels <- 10
+numModels <- 100
 maxRuntime <- 360 # This is in seconds
 
-# Run 100 expirements or train 10 Auto ML models using randomized set of training data each time
+# Run 100 expirements or train 100 Auto ML models using randomized set of training data each time
 # Each model will also have 5 fold cross-validation as a base parameter.
 
 ####
@@ -157,13 +159,14 @@ maxRuntime <- 360 # This is in seconds
 h2o.init(nthreads=15)
 
 ## Create training and validation frames
+# Get CNV Scale Data
 condensed <- read.csv("/data/ukbiobank/ukb_l2r_ids_allchr_condensed_4splits.txt", sep = " ")
 
 # COVID data
 covid_results <- read.csv("/data/ukbiobank/covid-19/covid19_result.txt", sep = "\t")
-covid_results <- covid_results[covid_results$result == 1, ]
-covid_results <- covid_results[,!names(covid_results) %in% c("datereported", "specdate", "spectype", "laboratory", "origin")]
-covid_results <- unique(covid_results)
+covid_results <- covid_results[covid_results$result == 1, ] # Get positive results
+covid_results <- covid_results[,!names(covid_results) %in% c("datereported", "specdate", "spectype", "laboratory", "origin")] # Remove unnecessary columns
+covid_results <- unique(covid_results) # Remove duplicate tests
 
 # Get age related information
 my_ukb_data_cancer <- ukb_df("ukb29274", path = "/data/ukbiobank/cancer")
@@ -175,6 +178,7 @@ all_data <- merge(condensed, my_data_age, by.x = "ids", by.y = "eid")
 # Get COVID patients
 covid_data <- merge(all_data, covid_results, by.x = "ids", by.y = "eid")
 covid <- covid_data[covid_data$result == 1,]
+covid <- unique(covid)
 
 # Get breakdown of COVID patients' age
 covid_age <- table(covid$yearBorn)
@@ -200,6 +204,7 @@ for (i in 1:numModels) {
     possible_controls <- no_covid_initial[no_covid_initial$yearBorn == age_check,]
     no_covid <- rbind(no_covid, possible_controls[sample(nrow(possible_controls), number_cases, replace = TRUE), ])
   }
+  no_covid <- unique(no_covid)
   
   ind <- sample(c(TRUE, FALSE), nrow(covid), replace=TRUE, prob=c(0.7, 0.3)) # Random split
   
@@ -210,8 +215,7 @@ for (i in 1:numModels) {
   train <- train[,!names(train) %in% c("datereported", "specdate", "spectype", "laboratory", "origin")]
   validate <- validate[,!names(validate) %in% c( "datereported", "specdate", "spectype", "laboratory", "origin")]
   
-  
-  controls <- no_covid[sample(nrow(no_covid), nrow(covid), replace = TRUE), ] # Randomly get controls
+  controls <- no_covid # Get controls
   controls['result'] = 0
   
   train_controls <- controls[ind, ]
@@ -228,9 +232,12 @@ for (i in 1:numModels) {
   train$result <- as.factor(train$result)
   validate$result <- as.factor(validate$result)
   
-  #Remove unnecessary rows
+  #Remove unnecessary columns
   train <- train[,!names(train) %in% c("ids")]
   validate <- validate[,!names(validate) %in% c( "ids")]
+  
+  train <- train[!is.na(train$result),]
+  validate <- validate[!is.na(validate$result),]
   
   # Load data into h2o
   
@@ -253,7 +260,7 @@ for (i in 1:numModels) {
                       y = response,
                       training_frame = train.hex,
                       validation_frame = validate.hex,
-                      nfolds=5,
+                      nfolds=10,
                       max_runtime_secs = maxRuntime)
   
   #record the Leading model AUC in the dataset
@@ -271,7 +278,7 @@ for (i in 1:numModels) {
   # Attempt predict on validation frame
   prediction <- h2o.predict(object = leader, newdata = validate.hex)
   as.data.frame(prediction)
-  summary(prediction)
+  summary(prediction, exact_quantiles = TRUE)
   
   validation.perf <- h2o.performance(leader, train = FALSE, xval=TRUE, newdata = validate.hex)
   validation.perf.auc <- validation.perf@metrics$AUC

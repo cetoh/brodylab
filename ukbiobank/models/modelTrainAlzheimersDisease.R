@@ -55,7 +55,7 @@ ind <- sample(c(TRUE, FALSE), nrow(alzheimers), replace=TRUE, prob=c(0.7, 0.3)) 
 train <- alzheimers[ind, ]
 validate <- alzheimers[!ind, ]
 
-controls <- no_alzheimers[sample(nrow(no_alzheimers), nrow(alzheimers), replace = TRUE), ] # Randomly get controls
+controls <- no_alzheimers # get controls
 
 train_controls <- controls[ind, ]
 validate_controls <- controls[!ind, ]
@@ -169,6 +169,7 @@ for (i in 1:length(alz_age)) {
   possible_controls <- no_alzheimers_initial[no_alzheimers_initial$yearBorn == age_check,]
   no_alzheimers <- rbind(no_alzheimers, possible_controls[sample(nrow(possible_controls), number_cases, replace = TRUE), ])
 }
+no_alzheimers <- unique(no_alzheimers)
 
 combined_data <- rbind(alzheimers, no_alzheimers)
 
@@ -177,7 +178,7 @@ ind <- sample(c(TRUE, FALSE), nrow(alzheimers), replace=TRUE, prob=c(0.7, 0.3)) 
 train <- alzheimers[ind, ]
 validate <- alzheimers[!ind, ]
 
-controls <- no_alzheimers[sample(nrow(no_alzheimers), nrow(alzheimers), replace = TRUE), ] # Randomly get controls
+controls <- no_alzheimers # get controls
 
 train_controls <- controls[ind, ]
 validate_controls <- controls[!ind, ]
@@ -422,7 +423,7 @@ ind <- sample(c(TRUE, FALSE), nrow(alzheimers), replace=TRUE, prob=c(0.7, 0.3)) 
 train <- alzheimers[ind, ]
 validate <- alzheimers[!ind, ]
 
-controls <- no_alzheimers[sample(nrow(no_alzheimers), nrow(alzheimers), replace = TRUE), ] # Randomly get controls
+controls <- no_alzheimers # get controls
 
 train_controls <- controls[ind, ]
 validate_controls <- controls[!ind, ]
@@ -496,7 +497,7 @@ h2o.shutdown(prompt = TRUE)
 rm(results)
 results <- c()
 numModels <- 100
-maxRuntime <- 300 # This is in seconds
+maxRuntime <- 3600 # This is in seconds
 
 # Run 100 expirements or train 100 Auto ML models using randomized set of training data each time
 # Each model will also have 5 fold cross-validation as a base parameter.
@@ -557,7 +558,7 @@ for (i in 1:numModels) {
   train <- alzheimers[ind, ]
   validate <- alzheimers[!ind, ]
   
-  controls <- no_alzheimers[sample(nrow(no_alzheimers), nrow(alzheimers), replace = TRUE), ] # Randomly get controls
+  controls <- no_alzheimers # Randomly get controls
   
   train_controls <- controls[ind, ]
   validate_controls <- controls[!ind, ]
@@ -649,7 +650,7 @@ h2o.shutdown(prompt = TRUE)
 rm(results)
 results <- c()
 numModels <- 100
-maxRuntime <- 360 # This is in seconds
+maxRuntime <- 3600 # This is in seconds
 
 # Run 100 expirements or train 100 Auto ML models using randomized set of training data each time
 # Each model will also have 5 fold cross-validation as a base parameter.
@@ -710,7 +711,7 @@ for (i in 1:numModels) {
   train <- alzheimers[ind, ]
   validate <- alzheimers[!ind, ]
   
-  controls <- no_alzheimers[sample(nrow(no_alzheimers), nrow(alzheimers), replace = TRUE), ] # Randomly get controls
+  controls <- no_alzheimers # Randomly get controls
   
   train_controls <- controls[ind, ]
   validate_controls <- controls[!ind, ]

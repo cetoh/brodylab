@@ -497,7 +497,7 @@ h2o.shutdown(prompt = TRUE)
 rm(results)
 results <- c()
 numModels <- 100
-maxRuntime <- 3600 # This is in seconds
+maxRuntime <- 360 # This is in seconds
 
 # Run 100 expirements or train 100 Auto ML models using randomized set of training data each time
 # Each model will also have 5 fold cross-validation as a base parameter.
@@ -650,7 +650,7 @@ h2o.shutdown(prompt = TRUE)
 rm(results)
 results <- c()
 numModels <- 100
-maxRuntime <- 3600 # This is in seconds
+maxRuntime <- 360 # This is in seconds
 
 # Run 100 expirements or train 100 Auto ML models using randomized set of training data each time
 # Each model will also have 5 fold cross-validation as a base parameter.

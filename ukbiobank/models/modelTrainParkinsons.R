@@ -1,5 +1,4 @@
 library(h2o)
-library(h2o4gpu)
 library(ukbtools)
 library(tidyverse)
 
@@ -39,7 +38,7 @@ for (i in 1:length(parkinsons_age)) {
     temp <- parkinsons_age[i]
     age_check <- as.numeric(names(temp))
     number_cases <- as.numeric(unname(temp))
-    possible_controls <- no_parkinsons_initial[no_parkinsons_initial$yearBorn == age_check,]
+    possible_controls <- no_parkinsons_initial %>% filter(yearBorn == age_check)
     no_parkinsons <- rbind(no_parkinsons, possible_controls[sample(nrow(possible_controls), number_cases, replace = TRUE), ])
 }
 

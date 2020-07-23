@@ -88,6 +88,8 @@ response <- "datereported"
 #Get Predictors
 predictors <- colnames(train)
 predictors <- predictors[! predictors %in% response] #Response cannot be a predictor
+predictors <- predictors[! predictors %in% "yearBorn"] #Response cannot be a predictor
+predictors <- predictors[! predictors %in% "sourcereported"] #Response cannot be a predictor
 model <- h2o.automl(x = predictors,
                     y = response,
                     training_frame = train.hex,
@@ -199,10 +201,6 @@ for (i in 1:numModels) {
   train <- train[,!names(train) %in% c("ids", "sex", "behavior")]
   validate <- validate[,!names(validate) %in% c("ids", "sex", "behavior")]
   
-  # Free up data 
-  rm(schiz, no_schiz, controls, train_controls, validate_controls)
-  rm(my_data, my_ukb_data, my_ukb_data_cancer, my_data_age)
-  
   # Load data into h2o
   
   train.hex <- as.h2o(train, destination_frame = "train.hex")  
@@ -219,6 +217,8 @@ for (i in 1:numModels) {
   #Get Predictors
   predictors <- colnames(train)
   predictors <- predictors[! predictors %in% response] #Response cannot be a predictor
+  predictors <- predictors[! predictors %in% "yearBorn"] #Response cannot be a predictor
+  predictors <- predictors[! predictors %in% "sourcereported"] #Response cannot be a predictor
   model <- h2o.automl(x = predictors,
                       y = response,
                       training_frame = train.hex,

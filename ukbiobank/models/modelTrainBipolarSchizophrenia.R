@@ -84,8 +84,8 @@ validate <- bipolar[!ind, ]
 train2 <- schiz[ind, ]
 validate2 <- schiz[!ind, ]
 
-controls <- no_bipolar[sample(nrow(no_bipolar), nrow(bipolar), replace = TRUE), ] # Randomly get controls
-controls2 <- no_schiz[sample(nrow(no_schiz), nrow(schiz), replace = TRUE), ] # Randomly get controls
+controls <- no_bipolar # get controls
+controls2 <- no_schiz # get controls
 
 train_controls <- controls[ind, ]
 validate_controls <- controls[!ind, ]
@@ -113,7 +113,7 @@ validate2 <- validate2[,!names(validate2) %in% c("ids", "sex", "behavior")]
 
 # Free up data 
 rm(no_bipolar, bipolar, schiz, no_schiz, controls, controls2, train_controls, validate_controls, train_controls2, validate_controls2)
-rm(my_data, my_ukb_data, my_ukb_data_cancer, my_data_age, possible_controls, no_bipolar_initial, no_schiz_initial)
+rm(my_data, my_ukb_data, my_ukb_data_cancer, my_data_age, possible_controls, no_bipolar_initial, no_schiz_initial, all_data)
 
 # Load data into h2o
 

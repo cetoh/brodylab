@@ -8,7 +8,7 @@ library(dplyr)
 condensed <- read.csv("/data/ukbiobank/ukb_l2r_ids_allchr_condensed_4splits.txt", sep = " ")
 
 # COVID data
-covid_results <- read.csv("/data/ukbiobank/covid-19/covid19_result.txt", sep = "\t")
+covid_results <- read.csv("/data/ukbiobank/covid-19/covid19_result_June19-2020.txt", sep = "\t")
 covid_results <- covid_results[covid_results$result == 1, ] # Get positive results
 covid_results <- covid_results[,!names(covid_results) %in% c("datereported", "specdate", "spectype", "laboratory", "origin")] # Remove unnecessary columns
 covid_results <- unique(covid_results) # Remove duplicate tests

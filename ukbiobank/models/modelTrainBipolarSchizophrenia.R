@@ -84,8 +84,8 @@ validate <- bipolar[!ind, ]
 train2 <- schiz[ind, ]
 validate2 <- schiz[!ind, ]
 
-controls <- no_bipolar[sample(nrow(no_bipolar), nrow(bipolar), replace = TRUE), ] # Randomly get controls
-controls2 <- no_schiz[sample(nrow(no_schiz), nrow(schiz), replace = TRUE), ] # Randomly get controls
+controls <- no_bipolar # get controls
+controls2 <- no_schiz # get controls
 
 train_controls <- controls[ind, ]
 validate_controls <- controls[!ind, ]

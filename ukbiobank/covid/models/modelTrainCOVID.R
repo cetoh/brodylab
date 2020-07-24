@@ -13,6 +13,7 @@ covid_results <- covid_results[covid_results$result == 1, ] # Get positive resul
 covid_results <- covid_results[,!names(covid_results) %in% c("datereported", "specdate", "spectype", "laboratory", "origin")] # Remove unnecessary columns
 covid_results <- unique(covid_results) # Remove duplicate tests
 
+
 # Get age related information
 my_ukb_data_cancer <- ukb_df("ukb29274", path = "/data/ukbiobank/cancer")
 my_data_age <- select(my_ukb_data_cancer, eid, yearBorn = year_of_birth_f34_0_0)

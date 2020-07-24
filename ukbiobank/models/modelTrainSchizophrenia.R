@@ -287,8 +287,8 @@ ggplot(finalModelResults, aes(x=model_types, y=results)) +
                outlier.size=4)
 
 # Create Confidence interval plot
-df <- data.frame(x = results,
-                 y = x + rnorm(20))
+df <- data.frame(x = 1:100,
+                 y = results)
 plot(y ~ x, data = df)
 
 # model
@@ -300,7 +300,7 @@ preds <- predict(mod, newdata = data.frame(x=newx),
                  interval = 'confidence')
 
 # plot
-plot(y ~ x, data = df, type = 'n')
+plot(y ~ x, data = df, type = 'p')
 # add fill
 polygon(c(rev(newx), newx), c(rev(preds[ ,3]), preds[ ,2]), col = 'grey80', border = NA)
 # model

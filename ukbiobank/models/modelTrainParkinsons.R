@@ -1,5 +1,4 @@
 library(h2o)
-library(h2o4gpu)
 library(ukbtools)
 library(tidyverse)
 
@@ -25,10 +24,23 @@ all_data <- merge(all_data, my_data_age, by.x = "ids", by.y = "eid")
 # Get Parkinson's Patients
 parkinsons <- all_data[!is.na(all_data[, "datereported"]),]
 
-# As an age control we will only look at individuals born within the same time as 
-# the Parkinson's patients for our non Parkinson's patients
-all_data <- subset(all_data, all_data$yearBorn < max(parkinsons$yearBorn))
-all_data <- subset(all_data, all_data$yearBorn > min(parkinsons$yearBorn))
+# Get breakdown of Bipolar patients by age
+parkinsons_age <- table(parkinsons$yearBorn)
+
+#Get non Bipolar Patients
+no_parkinsons_initial <- all_data[is.na(all_data[, "datereported"]),]
+
+# Randomly get non Bipolar patients for controls so that there is an equal amount based on age
+# This will ensure that the controls are age-matched to the Bipolar sample
+no_parkinsons <- data.frame(matrix(ncol = ncol(no_parkinsons_initial), nrow = 0))
+colnames(no_parkinsons) <- colnames(no_parkinsons_initial)
+for (i in 1:length(parkinsons_age)) {
+    temp <- parkinsons_age[i]
+    age_check <- as.numeric(names(temp))
+    number_cases <- as.numeric(unname(temp))
+    possible_controls <- no_parkinsons_initial %>% filter(yearBorn == age_check)
+    no_parkinsons <- rbind(no_parkinsons, possible_controls[sample(nrow(possible_controls), number_cases, replace = TRUE), ])
+}
 
 no_parkinsons <- all_data[is.na(all_data[, "datereported"]),]
 
@@ -59,8 +71,8 @@ train <- train[,!names(train) %in% c("ids", "sex", "behavior")]
 validate <- validate[,!names(validate) %in% c("ids", "sex", "behavior")]
 
 # Free up data 
-rm(no_parkinsons, parkinsons, controls, train_controls, validate_controls)
-rm(my_data, my_ukb_data, my_ukb_data_cancer, my_data_age)
+rm(no_parkinsons, no_parkinsons_initial, parkinsons, controls, train_controls, validate_controls)
+rm(my_data, my_ukb_data, my_ukb_data_cancer, my_data_age, all_data)
 
 # Load data into h2o
 
@@ -78,6 +90,8 @@ response <- "datereported"
 #Get Predictors
 predictors <- colnames(train)
 predictors <- predictors[! predictors %in% response] #Response cannot be a predictor
+predictors <- predictors[! predictors %in% "ids"] #Response cannot be a predictor
+predictors <- predictors[! predictors %in% "yearBorn"] #Response cannot be a predictor
 model <- h2o.automl(x = predictors,
                     y = response,
                     training_frame = train.hex,

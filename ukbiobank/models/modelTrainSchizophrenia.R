@@ -282,9 +282,11 @@ h2o.shutdown(prompt = TRUE)
 aucs <- data.frame(results)
 models <- data.frame(model_types)
 finalModelResults <- cbind(aucs, models)
-ggplot(finalModelResults, aes(x=model_types, y=results)) + 
+ggplot(finalModelResults, aes(x=model_types, y=results, color=model_types)) + 
   geom_boxplot(outlier.colour="red", outlier.shape=8,
-               outlier.size=4)
+               outlier.size=4) +
+  geom_dotplot(binaxis='y', stackdir='center', dotsize=0.75) +
+  scale_color_brewer(palette="Dark2") + ggtitle("Comparison of AUCs by Model")
 
 # Create Confidence interval plot
 df <- data.frame(x = 1:100,
@@ -302,7 +304,7 @@ preds <- predict(mod, newdata = data.frame(x=newx),
 # plot
 plot(y ~ x, data = df, type = 'p')
 # add fill
-polygon(c(rev(newx), newx), c(rev(preds[ ,3]), preds[ ,2]), col = 'grey80', border = NA)
+polygon(c(rev(newx), newx), c(rev(preds[ ,3]), preds[ ,2]), col = 'grey80', density=10,border = NA)
 # model
 abline(mod)
 # intervals

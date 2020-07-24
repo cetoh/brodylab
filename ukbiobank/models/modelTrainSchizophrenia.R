@@ -2,6 +2,7 @@ library(h2o)
 library(ukbtools)
 library(tidyverse)
 library(dplyr)
+library(ggplot2)
 
 # Load h2o
 h2o.init(nthreads=15)
@@ -275,3 +276,36 @@ confidence_interval(predictions, 0.99)
 
 # Graceful shutdown of cluster
 h2o.shutdown(prompt = TRUE)
+
+
+# Make plots
+aucs <- data.frame(results)
+models <- data.frame(model_types)
+finalModelResults <- cbind(aucs, models)
+ggplot(finalModelResults, aes(x=model_types, y=results)) + 
+  geom_boxplot(outlier.colour="red", outlier.shape=8,
+               outlier.size=4)
+
+# Create Confidence interval plot
+df <- data.frame(x = results,
+                 y = x + rnorm(20))
+plot(y ~ x, data = df)
+
+# model
+mod <- lm(y ~ x, data = df)
+
+# predicts + interval
+newx <- seq(min(df$x), max(df$x), length.out=100)
+preds <- predict(mod, newdata = data.frame(x=newx), 
+                 interval = 'confidence')
+
+# plot
+plot(y ~ x, data = df, type = 'n')
+# add fill
+polygon(c(rev(newx), newx), c(rev(preds[ ,3]), preds[ ,2]), col = 'grey80', border = NA)
+# model
+abline(mod)
+# intervals
+lines(newx, preds[ ,3], lty = 'dashed', col = 'red')
+lines(newx, preds[ ,2], lty = 'dashed', col = 'red')
+title("Confidence Interval of AUCs of Schizophrenia Models")

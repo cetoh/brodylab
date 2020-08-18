@@ -729,7 +729,7 @@ ggplot(splitAucs,  aes(x=split, y=newRes, color=split, group = split)) +
 
 
 ggplot(subset(splitAucs, split %in% c("1 split", "4 splits", "8 splits") & model_types %in% c("gbm", "glm", "stackedensemble", "deeplearning", "xgboost")),
-       aes(x = model_types, y = newRes,  colour = interaction(split, model_types), group = model_types)) + facet_wrap( ~ split) +
+       aes(x = split, y = newRes,  colour = interaction(model_types, split), group = split)) + facet_wrap( ~ model_types) +
   geom_boxplot() +
   geom_dotplot(binaxis='y', stackdir='center', dotsize=0.25, outlier.alpha = 0.1) +
   #scale_color_brewer(palette="Dark2") + 

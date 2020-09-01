@@ -115,6 +115,7 @@ h2o.performance(leader,train=FALSE, xval=TRUE)
 
 
 # Graceful shutdown of cluster
+h2o.removeAll()
 h2o.shutdown(prompt = TRUE)
 
 ###################################################
@@ -128,7 +129,7 @@ rm(results8, predictions8, model_types8)
 results <- c()
 predictions <- c()
 model_types <- c()
-numModels <- 100
+numModels <- 150
 maxRuntime <- 60 # This is in seconds
 
 # Run 100 expirements or train 100 Auto ML models using randomized set of training data each time
@@ -280,6 +281,7 @@ confidence_interval(predictions, 0.95)
 confidence_interval(predictions, 0.99)
 
 # Graceful shutdown of cluster
+h2o.removeAll()
 h2o.shutdown(prompt = TRUE)
 
 
@@ -329,7 +331,7 @@ title("Confidence Interval of AUCs of Schizophrenia Models 1 Split")
 results4 <- c()
 predictions4 <- c()
 model_types4 <- c()
-numModels <- 100
+numModels <- 150
 maxRuntime <- 60 # This is in seconds
 
 # Run 100 expirements or train 100 Auto ML models using randomized set of training data each time
@@ -454,8 +456,8 @@ for (i in 1:numModels) {
   predictions4 <- c(predictions4, validation.perf.auc)
 }
 
-mean(results)
-sd(results)
+mean(results4)
+sd(results4)
 
 confidence_interval(results4, 0.90)
 confidence_interval(results4, 0.95)
@@ -465,7 +467,8 @@ confidence_interval(predictions4, 0.90)
 confidence_interval(predictions4, 0.95)
 confidence_interval(predictions4, 0.99)
 
-# Graceful shutdown of cluster
+# Graceful shutdown of 
+h2o.removeAll()
 h2o.shutdown(prompt = TRUE)
 
 # Make plots
@@ -514,7 +517,7 @@ title("Confidence Interval of AUCs of Schizophrenia Models 4 Splits")
 results8 <- c()
 predictions8 <- c()
 model_types8 <- c()
-numModels <- 100
+numModels <- 150
 maxRuntime <- 60 # This is in seconds
 
 # Run 100 expirements or train 100 Auto ML models using randomized set of training data each time
@@ -639,8 +642,8 @@ for (i in 1:numModels) {
   predictions8 <- c(predictions8, validation.perf.auc)
 }
 
-mean(results)
-sd(results)
+mean(results8)
+sd(results8)
 
 confidence_interval(results8, 0.90)
 confidence_interval(results8, 0.95)
@@ -651,6 +654,7 @@ confidence_interval(predictions8, 0.95)
 confidence_interval(predictions8, 0.99)
 
 # Graceful shutdown of cluster
+h2o.removeAll()
 h2o.shutdown(prompt = TRUE)
 
 
@@ -727,8 +731,8 @@ ggplot(splitAucs,  aes(x=split, y=newRes, color=split, group = split)) +
   ggtitle("Comparison of Schizophrenia Prediction AUCs by All Models Performance by Split") + 
   xlab("CSLV Splits") + ylab("AUC of Predictions")
 
-
-ggplot(subset(splitAucs, split %in% c("1 split", "4 splits", "8 splits") & model_types %in% c("gbm", "glm", "stackedensemble", "deeplearning", "xgboost")),
+# You can remove some model types if there were insufficient of those models made to make a relevant graph
+ggplot(subset(splitAucs, split %in% c("1 split", "4 splits", "8 splits") & model_types %in% c("gbm", "glm", "stackedensemble", "deeplearning", "drf", "xgboost")),
        aes(x = split, y = newRes,  colour = interaction(model_types, split), group = split)) + facet_wrap( ~ model_types) +
   geom_boxplot() +
   geom_dotplot(binaxis='y', stackdir='center', dotsize=0.25, outlier.alpha = 0.1) +
@@ -737,3 +741,19 @@ ggplot(subset(splitAucs, split %in% c("1 split", "4 splits", "8 splits") & model
   scale_y_discrete(breaks = c(0.50, 0.51,0.52, 0.53, 0.54, 0.55, 0.56, 0.57, 0.58, 0.59, 0.60, 0.61, 0.62, 0.63, 0.64)) +
   ggtitle("Comparison of Schizophrenia Prediction AUCs by Model Type Performance by Split") + 
   xlab("Model Types") + ylab("AUC of Predictions")
+
+# Pring statistics
+mean(results)
+sd(results)
+mean(results4)
+sd(results4)
+mean(results8)
+sd(results8)
+
+test <- t.test(results, results4, paired = TRUE, alternative = "two.sided")
+test$p.value
+test2 <- t.test(results, results8, paired = TRUE, alternative = "two.sided")
+test2$p.value
+test3 <- t.test(results4, results8, paired = TRUE, alternative = "two.sided")
+test3$p.value
+

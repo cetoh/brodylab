@@ -44,8 +44,8 @@ for (i in 1:length(schiz_age)) {
   no_schiz <- rbind(no_schiz, possible_controls[sample(nrow(possible_controls), number_cases, replace = TRUE), ])
 }
 
-schiz$datereported <- TRUE
-no_schiz$datereported <- FALSE
+schiz$datereported <- "Schizophrenia"
+no_schiz$datereported <- "Normal"
 
 ind <- sample(c(TRUE, FALSE), nrow(schiz), replace=TRUE, prob=c(0.7, 0.3)) # Random split
 
@@ -95,8 +95,9 @@ model <- h2o.automl(x = predictors,
                     y = response,
                     training_frame = train.hex,
                     validation_frame = validate.hex,
-                    nfolds=5,
-                    max_runtime_secs = 60)
+                    nfolds = 5,
+                    max_runtime_secs = 60,
+                    keep_cross_validation_predictions = TRUE)
 
 #record the Leading model AUC in the dataset
 leader <- model@leader
@@ -109,10 +110,58 @@ plot(h2o.performance(leader,train=FALSE, xval=TRUE),type='roc',main=paste("Schiz
 leader@algorithm
 h2o.performance(leader,train=FALSE, xval=TRUE)
 
+# Find Odds ratio
+#cross_val_preds <- gbm@model[["cross_validation_predictions"]]
+
+cvpreds <- as.data.frame(h2o.getFrame(model@leader@model[["cross_validation_holdout_predictions_frame_id"]][["name"]]))
+
+#combine with the original data
+predictions <- cbind(cvpreds,train)
+
+#rank by disease predicted score ascending
+predictions$rank <- rank(predictions[,"datereported"])
+predictions<- select(predictions, rank, everything())
+
+#total number of schizophrenic cases
+num_patients <- nrow(predictions[predictions$datereported == "Schizophrenia",])
+total_samples <- nrow(predictions)
+
+#This builds a dataframe for percentile of genetic risk score vs odds ratio
+ordataframe<- predictions %>% mutate(decile = ntile(Schizophrenia, 5)) %>% group_by(decile) %>% 
+  summarize(Normal=summary(datereported)[["Normal"]], 
+            Schizophrenia=summary(datereported)[["Schizophrenia"]], 
+            OR=(summary(datereported)[["Schizophrenia"]]/summary(datereported)[["Normal"]])/(num_patients/(total_samples-num_patients)),
+            count = n())
+
+#
+# Compute 95% confidence intervals (TCI,BCI) top of ci and bottom of ci
+# based on statperls https://www.ncbi.nlm.nih.gov/books/NBK431098/
+ordataframe$tci<-exp(log(ordataframe$OR)+
+                       1.96*sqrt(
+                         (1/(ordataframe$Schizophrenia+1))+
+                           (1/(ordataframe$Normal+1))+
+                           (1/sum(ordataframe$Schizophrenia))+
+                           (1/sum(ordataframe$Normal))
+                       ))
+ordataframe$bci<-exp(log(ordataframe$OR)-
+                       1.96*sqrt(
+                         (1/(ordataframe$Schizophrenia+1))+
+                           (1/(ordataframe$Normal+1))+
+                           (1/sum(ordataframe$Schizophrenia))+
+                           (1/sum(ordataframe$Normal))
+                       ))
+
+ordataframe$xaxis<-sequence(5)
+
+ggplot(ordataframe,aes(x=xaxis,y=OR)) + 
+  geom_point() +
+  geom_errorbar(aes(ymin=bci, ymax=tci), width=.2,position=position_dodge(0.05)) +
+  ggtitle("Odds Ratio Between Quintiles of Predicted Schizophrenia Patients") +
+  xlab("Quintile") + ylab("Odds Ratio")
+
 # Print performance info of leader
 leader@algorithm
 h2o.performance(leader,train=FALSE, xval=TRUE)
-
 
 # Graceful shutdown of cluster
 h2o.removeAll()
@@ -454,6 +503,7 @@ for (i in 1:numModels) {
   validation.perf.auc <- validation.perf@metrics$AUC
   
   predictions4 <- c(predictions4, validation.perf.auc)
+  
 }
 
 mean(results4)

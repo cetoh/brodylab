@@ -3,6 +3,8 @@ library(ukbtools)
 library(tidyverse)
 library(dplyr)
 library(ggplot2)
+library(ggthemes)
+library(ggsci)
 
 # Load h2o
 h2o.init(nthreads=15)
@@ -96,7 +98,7 @@ model <- h2o.automl(x = predictors,
                     training_frame = train.hex,
                     validation_frame = validate.hex,
                     nfolds = 5,
-                    max_runtime_secs = 60,
+                    max_runtime_secs = 300,
                     keep_cross_validation_predictions = TRUE)
 
 #record the Leading model AUC in the dataset
@@ -104,7 +106,46 @@ leader <- model@leader
 auc=h2o.auc(leader, train=FALSE, xval=TRUE)
 
 # plot out the ROC.  We type out the tissue and AUC at the top of the ROC.
-plot(h2o.performance(leader,train=FALSE, xval=TRUE),type='roc',main=paste("Schizophrenia", auc))
+mod_perf <- h2o.performance(leader,train=FALSE, xval=TRUE)
+
+
+plot(mod_perf, type='roc', main=paste("Schizophrenia 4-split CSLV Model Performance: AUC = ", auc))
+
+# for example I have a list of H2OModels
+list(leader) %>% 
+  # map a function to each element in the list
+  map(function(x) x %>% h2o.performance(valid=T) %>% 
+        # from all these 'paths' in the object
+        .@metrics %>% .$thresholds_and_metric_scores %>% 
+        # extracting true positive rate and false positive rate
+        .[c('tpr','fpr')] %>% 
+        # add (0,0) and (1,1) for the start and end point of ROC curve
+        add_row(tpr=0,fpr=0,.before=T) %>% 
+        add_row(tpr=0,fpr=0,.before=F)) %>% 
+  # add a column of model name for future grouping in ggplot2
+  map2(c('4-Split'),
+       function(x,y) x %>% add_column(model=y)) %>% 
+  # reduce four data.frame to one
+  reduce(rbind) %>% 
+  # plot fpr and tpr, map model to color as grouping
+  ggplot(aes(fpr,tpr,col=model))+
+  geom_line()+
+  geom_segment(aes(x=0,y=0,xend = 1, yend = 1),linetype = 2,col='grey')+
+  xlab('False Positive Rate')+
+  ylab('True Positive Rate')+
+  ggtitle('ROC Curve for 4-Split Schizophrenia Model')+
+  annotate("text", x = .75, y = .25, label = paste("AUC =", auc)) + 
+  theme_bw() + theme(plot.title = element_text(size = 18, face = "bold")) +
+  scale_color_npg()
+
+# Plot Precision-Recall Graph
+metrics <- as.data.frame(h2o.metric(mod_perf))
+metrics %>%
+  ggplot(aes(recall,precision)) + 
+  geom_line() +
+  theme_minimal() + ggtitle("Schizophrenia 4-split CSLV Model Precision-Recall") +
+  theme_bw() + theme(plot.title = element_text(size = 18, face = "bold")) +
+  scale_color_npg()
 
 # Print performance info of leader
 leader@algorithm
@@ -157,7 +198,9 @@ ggplot(ordataframe,aes(x=xaxis,y=OR)) +
   geom_point() +
   geom_errorbar(aes(ymin=bci, ymax=tci), width=.2,position=position_dodge(0.05)) +
   ggtitle("Odds Ratio Between Quintiles of Predicted Schizophrenia Patients") +
-  xlab("Quintile") + ylab("Odds Ratio")
+  xlab("Quintile") + ylab("Odds Ratio") +
+  theme_bw() + theme(plot.title = element_text(size = 18, face = "bold")) +
+  scale_color_npg()
 
 # Print performance info of leader
 leader@algorithm
@@ -344,7 +387,9 @@ ggplot(finalModelResults, aes(x=model_types, y=results, color=model_types)) +
   geom_dotplot(binaxis='y', stackdir='center', dotsize=0.75) +
   scale_color_brewer(palette="Dark2") + 
   ggtitle("Comparison of Schizophrenia Prediction AUCs by Model 1 Split") + 
-  xlab("Model Algorithms") + ylab("AUC of Predictions")
+  xlab("Model Algorithms") + ylab("AUC of Predictions") +
+  theme_bw() + theme(plot.title = element_text(size = 18, face = "bold")) +
+  scale_color_npg()
 
 
 # Create Confidence interval plot
@@ -531,7 +576,9 @@ ggplot(finalModelResults, aes(x=model_types4, y=results, color=model_types4)) +
   geom_dotplot(binaxis='y', stackdir='center', dotsize=0.75) +
   scale_color_brewer(palette="Dark2") + 
   ggtitle("Comparison of Schizophrenia Prediction AUCs by Model 4 Splits") + 
-  xlab("Model Algorithms") + ylab("AUC of Predictions")
+  xlab("Model Algorithms") + ylab("AUC of Predictions") +
+  theme_bw() + theme(plot.title = element_text(size = 18, face = "bold")) +
+  scale_color_npg()
 
 
 # Create Confidence interval plot
@@ -718,7 +765,9 @@ ggplot(finalModelResults, aes(x=model_types8, y=results, color=model_types8)) +
   geom_dotplot(binaxis='y', stackdir='center', dotsize=0.75) +
   scale_color_brewer(palette="Dark2") + 
   ggtitle("Comparison of Schizophrenia Prediction AUCs by Model 8 Split") + 
-  xlab("Model Algorithms") + ylab("AUC of Predictions")
+  xlab("Model Algorithms") + ylab("AUC of Predictions") +
+  theme_bw() + theme(plot.title = element_text(size = 18, face = "bold")) +
+  scale_color_npg()
 
 
 # Create Confidence interval plot
@@ -779,7 +828,9 @@ ggplot(splitAucs,  aes(x=split, y=newRes, color=split, group = split)) +
   scale_fill_manual(values = mycolors) +
   scale_y_discrete(breaks = c(0.50, 0.51,0.52, 0.53, 0.54, 0.55, 0.56, 0.57, 0.58, 0.59, 0.60, 0.61, 0.62, 0.63, 0.64)) +
   ggtitle("Comparison of Schizophrenia Prediction AUCs by All Models Performance by Split") + 
-  xlab("CSLV Splits") + ylab("AUC of Predictions")
+  xlab("CSLV Splits") + ylab("AUC of Predictions") +
+  theme_bw() + theme(plot.title = element_text(size = 18, face = "bold")) +
+  scale_color_npg()
 
 # You can remove some model types if there were insufficient of those models made to make a relevant graph
 ggplot(subset(splitAucs, split %in% c("1 split", "4 splits", "8 splits") & model_types %in% c("gbm", "glm", "stackedensemble", "deeplearning", "drf", "xgboost")),
@@ -790,7 +841,9 @@ ggplot(subset(splitAucs, split %in% c("1 split", "4 splits", "8 splits") & model
   scale_fill_manual(values = mycolors) +
   scale_y_discrete(breaks = c(0.50, 0.51,0.52, 0.53, 0.54, 0.55, 0.56, 0.57, 0.58, 0.59, 0.60, 0.61, 0.62, 0.63, 0.64)) +
   ggtitle("Comparison of Schizophrenia Prediction AUCs by Model Type Performance by Split") + 
-  xlab("Model Types") + ylab("AUC of Predictions")
+  xlab("Model Types") + ylab("AUC of Predictions") +
+  theme_bw() + theme(plot.title = element_text(size = 18, face = "bold")) +
+  scale_color_npg()
 
 # Pring statistics
 mean(results)

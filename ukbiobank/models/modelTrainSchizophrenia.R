@@ -1,3 +1,4 @@
+# Must use h2o v3.32.0.2 or higher for the explainability plots
 library(h2o)
 library(ukbtools)
 library(tidyverse)
@@ -104,6 +105,12 @@ model <- h2o.automl(x = predictors,
 #record the Leading model AUC in the dataset
 leader <- model@leader
 auc=h2o.auc(leader, train=FALSE, xval=TRUE)
+
+h2o.model_correlation_heatmap(model, validate.hex)
+h2o.varimp_heatmap(model)
+h2o.pd_multi_plot(model, validate.hex, "chrX_1.X1")
+h2o.shap_summary_plot(leader, validate.hex)
+h2o.ice_plot(leader, validate.hex, "chrX_1.X1")
 
 # plot out the ROC.  We type out the tissue and AUC at the top of the ROC.
 mod_perf <- h2o.performance(leader,train=FALSE, xval=TRUE)

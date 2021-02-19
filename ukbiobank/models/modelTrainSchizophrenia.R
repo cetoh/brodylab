@@ -109,7 +109,6 @@ model <- h2o.automl(x = predictors,
                     training_frame = train.hex,
                     validation_frame = validate.hex,
                     nfolds = 5,
-                    max_runtime_secs = 300,
                     keep_cross_validation_predictions = TRUE)
 
 #record the Leading model AUC in the dataset
@@ -230,7 +229,7 @@ h2o.performance(leader,train=FALSE, xval=TRUE)
 
 # Graceful shutdown of cluster
 h2o.removeAll()
-h2o.shutdown(prompt = TRUE)
+h2o.shutdown(prompt = FALSE)
 
 
 ###################################################
@@ -329,7 +328,6 @@ model <- h2o.automl(x = predictors,
                     training_frame = train.hex,
                     validation_frame = validate.hex,
                     nfolds = 5,
-                    max_runtime_secs = 300,
                     keep_cross_validation_predictions = TRUE)
 
 #record the Leading model AUC in the dataset
@@ -450,7 +448,7 @@ h2o.performance(leader,train=FALSE, xval=TRUE)
 
 # Graceful shutdown of cluster
 h2o.removeAll()
-h2o.shutdown(prompt = TRUE)
+h2o.shutdown(prompt = FALSE)
 
 ###################################################
 # Calculate Confidence Interval for 1 Split Model #
@@ -586,6 +584,9 @@ for (i in 1:numModels) {
   validation.perf.auc <- validation.perf@metrics$AUC
   
   predictions <- c(predictions, validation.perf.auc)
+  
+  h2o.removeAll()
+  rm(leader, model, train.hex, validate.hex)
 }
 
 # Function to calculate confidence interval
@@ -613,11 +614,6 @@ confidence_interval(results, 0.99)
 confidence_interval(predictions, 0.90)
 confidence_interval(predictions, 0.95)
 confidence_interval(predictions, 0.99)
-
-# Graceful shutdown of cluster
-h2o.removeAll()
-h2o.shutdown(prompt = TRUE)
-
 
 # Make plots
 aucs <- data.frame(results)
@@ -658,6 +654,10 @@ lines(newx, preds[ ,3], lty = 'dashed', col = 'red')
 lines(newx, preds[ ,2], lty = 'dashed', col = 'red')
 labels()
 title("Confidence Interval of AUCs of Schizophrenia Models 1 Split")
+
+# Graceful shutdown of 
+h2o.removeAll()
+h2o.shutdown(prompt = FALSE)
 
 ###################################################
 # Calculate Confidence Interval for 4 Split Model #
@@ -704,6 +704,7 @@ no_schiz_initial <- all_data[is.na(all_data[, "datereported"]),]
 schiz_age <- table(schiz$yearBorn)
 
 for (i in 1:numModels) {
+  
   # Randomly get non disease patients for controls so that there is an equal amount based on age
   # This will ensure that the controls are age-matched to the disease sample
   # For example there are 5 patients born 1937 who have AD so we will randomly grab 5 other 
@@ -791,6 +792,8 @@ for (i in 1:numModels) {
   
   predictions4 <- c(predictions4, validation.perf.auc)
   
+  h2o.removeAll()
+  rm(leader, model, train.hex, validate.hex)
 }
 
 mean(results4)
@@ -804,9 +807,6 @@ confidence_interval(predictions4, 0.90)
 confidence_interval(predictions4, 0.95)
 confidence_interval(predictions4, 0.99)
 
-# Graceful shutdown of 
-h2o.removeAll()
-h2o.shutdown(prompt = TRUE)
 
 # Make plots
 aucs <- data.frame(results4)
@@ -847,6 +847,10 @@ lines(newx, preds[ ,3], lty = 'dashed', col = 'red')
 lines(newx, preds[ ,2], lty = 'dashed', col = 'red')
 labels()
 title("Confidence Interval of AUCs of Schizophrenia Models 4 Splits")
+
+# Graceful shutdown of 
+h2o.removeAll()
+h2o.shutdown(prompt = FALSE)
 
 ###################################################
 # Calculate Confidence Interval for 8 Split Model #
@@ -893,7 +897,7 @@ no_schiz_initial <- all_data[is.na(all_data[, "datereported"]),]
 schiz_age <- table(schiz$yearBorn)
 
 for (i in 1:numModels) {
-  # Randomly get non disease patients for controls so that there is an equal amount based on age
+    # Randomly get non disease patients for controls so that there is an equal amount based on age
   # This will ensure that the controls are age-matched to the disease sample
   # For example there are 5 patients born 1937 who have AD so we will randomly grab 5 other 
   # patients born 1937 who do not have AD
@@ -979,6 +983,9 @@ for (i in 1:numModels) {
   validation.perf.auc <- validation.perf@metrics$AUC
   
   predictions8 <- c(predictions8, validation.perf.auc)
+  
+  h2o.removeAll()
+  rm(leader, model, train.hex, validate.hex)
 }
 
 mean(results8)
@@ -991,10 +998,6 @@ confidence_interval(results8, 0.99)
 confidence_interval(predictions8, 0.90)
 confidence_interval(predictions8, 0.95)
 confidence_interval(predictions8, 0.99)
-
-# Graceful shutdown of cluster
-h2o.removeAll()
-h2o.shutdown(prompt = TRUE)
 
 
 # Make plots
@@ -1037,7 +1040,9 @@ lines(newx, preds[ ,2], lty = 'dashed', col = 'red')
 labels()
 title("Confidence Interval of AUCs of Schizophrenia Models 8 Split")
 
-
+# Graceful shutdown of cluster
+h2o.removeAll()
+h2o.shutdown(prompt = FALSE)
 
 ###
 # GRAPHS FOR 1, 4, 8 split results
@@ -1087,7 +1092,7 @@ ggplot(subset(splitAucs, split %in% c("1 split", "4 splits", "8 splits") & model
   theme_bw() + theme(plot.title = element_text(size = 18, face = "bold")) +
   scale_color_npg()
 
-# Pring statistics
+# Print statistics
 mean(results)
 sd(results)
 mean(results4)

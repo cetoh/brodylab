@@ -97,6 +97,10 @@ system.time(saveX <- mclapply(1:22, condenseChromosomeWithSplits,
                               mc.cores = numCores - 1, splits = 4))
 system.time(saveX <- mclapply("X", condenseChromosomeWithSplits, 
                               mc.cores = numCores - 1, splits = 4))
+system.time(saveY <- mclapply("Y", condenseChromosomeWithSplits, 
+                              mc.cores = numCores - 1, splits = 4))
+system.time(saveXY <- mclapply("XY", condenseChromosomeWithSplits, 
+                              mc.cores = numCores - 1, splits = 4))
 
 # Write to file
 # Write results to file
@@ -105,6 +109,14 @@ system.time(mclapply(1:22, writeResultsWithSplits,
 for (i in 1:4) {
     system.time(write.table(saveX[[1]][i], paste("/data/ukbiobank/ukb_l2r_chrX_averaged_4splits_split",i,".txt", sep=""), 
                 sep = " ", row.names = FALSE, col.names = FALSE, dec = "."))
+}
+for (i in 1:4) {
+  system.time(write.table(saveY[[1]][i], paste("/data/ukbiobank/ukb_l2r_chrY_averaged_4splits_split",i,".txt", sep=""), 
+                          sep = " ", row.names = FALSE, col.names = FALSE, dec = "."))
+}
+for (i in 1:4) {
+  system.time(write.table(saveXY[[1]][i], paste("/data/ukbiobank/ukb_l2r_chrXY_averaged_4splits_split",i,".txt", sep=""), 
+                          sep = " ", row.names = FALSE, col.names = FALSE, dec = "."))
 }
 
 #Read in all the IDs
@@ -125,8 +137,8 @@ condensed <- data.table(ids, chr1 = save1[[1]], chr2 = save1[[2]],
                         chr17 = save1[[17]], chr18 = save1[[18]], 
                         chr19 = save1[[19]], chr20 = save1[[20]], 
                         chr21 = save1[[21]], chr22 = save1[[22]], 
-                        chrX = chrX[[1]])
+                        chrX = chrX[[1]], chrY = chrY[[1]])
 
 # Write final table to file
-write.table(condensed, paste("/data/ukbiobank/ukb_l2r_ids_allchr_condensed_64splits.txt", sep = ""),
+write.table(condensed, paste("/data/ukbiobank/ukb_l2r_ids_allchr_condensed_4splits.txt", sep = ""),
             sep = " ", row.names = FALSE, col.names = TRUE, dec = ".")

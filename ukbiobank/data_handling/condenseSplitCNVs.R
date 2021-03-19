@@ -83,7 +83,7 @@ condenseChromosomeWithSplits <- function(chrNum, splits) {
 
 writeResultsWithSplits <- function(chrNum, splits) {
     for (i in 1:splits) {
-        write.table(save1[[chrNum]][i], paste("/data/ukbiobank/ukb_l2r_chr", chrNum, "_averaged_", splits, "splits_split",i,".txt", sep=""), 
+        write.table(saveX[[chrNum]][i], paste("/data/ukbiobank/ukb_l2r_chr", chrNum, "_averaged_", splits, "splits_split",i,".txt", sep=""), 
             sep = " ", row.names = FALSE, col.names = FALSE, dec = ".")
     }
   
@@ -93,9 +93,13 @@ writeResultsWithSplits <- function(chrNum, splits) {
 
 # Run
 numCores <- detectCores()
-system.time(save1 <- mclapply(1:22, condenseChromosomeWithSplits, 
+system.time(saveX <- mclapply(1:22, condenseChromosomeWithSplits, 
                               mc.cores = numCores - 1, splits = 4))
 system.time(saveX <- mclapply("X", condenseChromosomeWithSplits, 
+                              mc.cores = numCores - 1, splits = 4))
+system.time(saveY <- mclapply("Y", condenseChromosomeWithSplits, 
+                              mc.cores = numCores - 1, splits = 4))
+system.time(saveXY <- mclapply("XY", condenseChromosomeWithSplits, 
                               mc.cores = numCores - 1, splits = 4))
 
 # Write to file
@@ -106,3 +110,35 @@ for (i in 1:4) {
     system.time(write.table(saveX[[1]][i], paste("/data/ukbiobank/ukb_l2r_chrX_averaged_4splits_split",i,".txt", sep=""), 
                 sep = " ", row.names = FALSE, col.names = FALSE, dec = "."))
 }
+for (i in 1:4) {
+  system.time(write.table(saveY[[1]][i], paste("/data/ukbiobank/ukb_l2r_chrY_averaged_4splits_split",i,".txt", sep=""), 
+                          sep = " ", row.names = FALSE, col.names = FALSE, dec = "."))
+}
+for (i in 1:4) {
+  system.time(write.table(saveXY[[1]][i], paste("/data/ukbiobank/ukb_l2r_chrXY_averaged_4splits_split",i,".txt", sep=""), 
+                          sep = " ", row.names = FALSE, col.names = FALSE, dec = "."))
+}
+
+#Read in all the IDs
+ids <- read.csv("/data/ukbiobank/patientIDSall.fam", header = FALSE, sep = " ")
+ids <- ids[[1]] #This just gets a vector of the ids in a column
+
+#Condense into single table
+# Unify results into final data frame
+# Unify results into final data frame
+condensed <- data.table(ids, chr1 = save1[[1]], chr2 = save1[[2]], 
+                        chr3 = save1[[3]], chr4 = save1[[4]], 
+                        chr5 = save1[[5]], chr6 = save1[[6]], 
+                        chr7 = save1[[7]], chr8 = save1[[8]], 
+                        chr9 = save1[[9]], chr10 = save1[[10]], 
+                        chr11 = save1[[11]], chr12 = save1[[12]], 
+                        chr13 = save1[[13]], chr14 = save1[[14]],
+                        chr15 = save1[[15]], chr16 = save1[[16]], 
+                        chr17 = save1[[17]], chr18 = save1[[18]], 
+                        chr19 = save1[[19]], chr20 = save1[[20]], 
+                        chr21 = save1[[21]], chr22 = save1[[22]], 
+                        chrX = chrX[[1]], chrY = chrY[[1]])
+
+# Write final table to file
+write.table(condensed, paste("/data/ukbiobank/ukb_l2r_ids_allchr_condensed_4splits.txt", sep = ""),
+            sep = " ", row.names = FALSE, col.names = TRUE, dec = ".")

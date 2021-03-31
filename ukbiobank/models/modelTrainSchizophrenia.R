@@ -1,3 +1,4 @@
+# Running in R v4.0.3
 # Must use h2o v3.32.0.2 or higher for the explainability plots
 # Run this section to install latest h2o package
 if ("package:h2o" %in% search()) { detach("package:h2o", unload=TRUE) }
@@ -36,6 +37,7 @@ my_data_age <- select(my_ukb_data_cancer, eid, yearBorn = year_of_birth_f34_0_0)
 # Merge with CNV data
 all_data <- merge(condensed, my_data, by.x = "ids", by.y = "eid")
 all_data <- merge(all_data, my_data_age, by.x = "ids", by.y = "eid")
+all_data <- data.frame(all_data) #Enforce data.frame
 
 schiz <- all_data[!is.na(all_data[, "datereported"]),]
 no_schiz_initial <- all_data[is.na(all_data[, "datereported"]),]
@@ -451,6 +453,437 @@ h2o.removeAll()
 h2o.shutdown(prompt = FALSE)
 
 ###################################################
+# Create a Model using only 64 Split Y Chromosome #
+###################################################
+
+# Load h2o
+h2o.init(nthreads=15)
+
+## Create training and validation frames
+condensed <- read.csv("/data/ukbiobank/ukb_l2r_ids_chrY_condensed_64splits.txt", sep = " ")
+
+# Schizophrenia data
+my_ukb_data <- ukb_df("ukb39651", path="/data/ukbiobank")
+my_data <- select(my_ukb_data,eid,
+                  datereported = date_f20_first_reported_schizophrenia_f130874_0_0,
+                  sourcereported = source_of_report_of_f20_schizophrenia_f130875_0_0)
+
+# Get age related information
+my_ukb_data_cancer <- ukb_df("ukb29274", path = "/data/ukbiobank/cancer")
+my_data_age <- select(my_ukb_data_cancer, eid, yearBorn = year_of_birth_f34_0_0)
+
+# Merge with CNV data
+all_data <- merge(condensed, my_data, by.x = "ids", by.y = "eid")
+all_data <- merge(all_data, my_data_age, by.x = "ids", by.y = "eid")
+
+schiz <- all_data[!is.na(all_data[, "datereported"]),]
+no_schiz_initial <- all_data[is.na(all_data[, "datereported"]),]
+
+# Get breakdown of  patients by age
+schiz_age <- table(schiz$yearBorn)
+
+# Randomly get non disease patients for controls so that there is an equal amount based on age
+# This will ensure that the controls are age-matched to the disease sample
+# For example there are 5 patients born 1937 who have AD so we will randomly grab 5 other 
+# patients born 1937 who do not have AD
+no_schiz <- data.frame(matrix(ncol = ncol(no_schiz_initial), nrow = 0))
+colnames(no_schiz) <- colnames(no_schiz_initial)
+for (i in 1:length(schiz_age)) {
+  temp <- schiz_age[i]
+  age_check <- as.numeric(names(temp))
+  number_cases <- as.numeric(unname(temp))
+  possible_controls <- no_schiz_initial[no_schiz_initial$yearBorn == age_check,]
+  no_schiz <- rbind(no_schiz, possible_controls[sample(nrow(possible_controls), number_cases, replace = TRUE), ])
+}
+
+schiz$datereported <- "Schizophrenia"
+no_schiz$datereported <- "Normal"
+
+ind <- sample(c(TRUE, FALSE), nrow(schiz), replace=TRUE, prob=c(0.7, 0.3)) # Random split
+
+train <- schiz[ind, ]
+validate <- schiz[!ind, ]
+
+controls <- no_schiz #  get controls
+
+train_controls <- controls[ind, ]
+validate_controls <- controls[!ind, ]
+
+# Combine controls with samples
+train <- rbind(train, train_controls)
+validate <- rbind(validate, validate_controls)
+
+# Set response column to factor
+train$datereported <- as.factor(train$datereported)
+validate$datereported <- as.factor(validate$datereported)
+
+#Remove unnecessary columns
+train <- train[,!names(train) %in% c("ids", "sex", "behavior")]
+validate <- validate[,!names(validate) %in% c("ids", "sex", "behavior")]
+
+# Free up data 
+rm(schiz, no_schiz, controls, train_controls, validate_controls)
+rm(my_data, my_ukb_data, my_ukb_data_cancer, my_data_age)
+
+# Load data into h2o
+
+train.hex <- as.h2o(train, destination_frame = "train.hex")  
+validate.hex <- as.h2o(validate, destination_frame = "validate.hex")
+
+#
+#  I usually stop here and goto http://localhost:54321/flow/index.html 
+#  h2o runs a local webserver on port 54321, it offers a nice little interface.
+#  you can run the AutoML from the web browser there and it has some nice features so that 
+# you can monitor the progress of the training.
+
+#Response column
+response <- "datereported"
+#Get Predictors
+predictors <- colnames(train)
+predictors <- predictors[! predictors %in% response] #Response cannot be a predictor
+predictors <- predictors[! predictors %in% "yearBorn"] #Response cannot be a predictor
+predictors <- predictors[! predictors %in% "sourcereported"] #Response cannot be a predictor
+model <- h2o.automl(x = predictors,
+                    y = response,
+                    training_frame = train.hex,
+                    validation_frame = validate.hex,
+                    nfolds = 5,
+                    keep_cross_validation_predictions = TRUE)
+
+#record the Leading model AUC in the dataset
+leader <- model@leader
+auc=h2o.auc(leader, train=FALSE, xval=TRUE)
+
+# Generate explainability plots
+exp_aml <- h2o.explain(model, validate.hex)
+exp_aml
+exp_leader <- h2o.explain(leader, validate.hex)
+exp_leader
+
+# plot out the ROC.  We type out the tissue and AUC at the top of the ROC.
+mod_perf <- h2o.performance(leader,train=FALSE, xval=TRUE)
+
+
+plot(mod_perf, type='roc', main=paste("Schizophrenia 64-split Y Chromosome CSLV Model Performance: AUC = ", auc))
+
+# for example I have a list of H2OModels
+list(leader) %>% 
+  # map a function to each element in the list
+  map(function(x) x %>% h2o.performance(valid=T) %>% 
+        # from all these 'paths' in the object
+        .@metrics %>% .$thresholds_and_metric_scores %>% 
+        # extracting true positive rate and false positive rate
+        .[c('tpr','fpr')] %>% 
+        # add (0,0) and (1,1) for the start and end point of ROC curve
+        add_row(tpr=0,fpr=0,.before=T) %>% 
+        add_row(tpr=0,fpr=0,.before=F)) %>% 
+  # add a column of model name for future grouping in ggplot2
+  map2(c('64-Split'),
+       function(x,y) x %>% add_column(model=y)) %>% 
+  # reduce four data.frame to one
+  reduce(rbind) %>% 
+  # plot fpr and tpr, map model to color as grouping
+  ggplot(aes(fpr,tpr,col=model))+
+  geom_line()+
+  geom_segment(aes(x=0,y=0,xend = 1, yend = 1),linetype = 2,col='grey')+
+  xlab('False Positive Rate')+
+  ylab('True Positive Rate')+
+  ggtitle('ROC Curve for 64-Split Y Chr Schizophrenia Model')+
+  annotate("text", x = .75, y = .25, label = paste("AUC =", auc)) + 
+  theme_bw() + theme(plot.title = element_text(size = 18, face = "bold")) +
+  scale_color_npg()
+
+# Plot Precision-Recall Graph
+metrics <- as.data.frame(h2o.metric(mod_perf))
+metrics %>%
+  ggplot(aes(recall,precision)) + 
+  geom_line() +
+  theme_minimal() + ggtitle("Schizophrenia 64-split Y Chr CSLV Model Precision-Recall") +
+  theme_bw() + theme(plot.title = element_text(size = 18, face = "bold")) +
+  scale_color_npg()
+
+# Print performance info of leader
+leader@algorithm
+h2o.performance(leader,train=FALSE, xval=TRUE)
+
+# Find Odds ratio
+#cross_val_preds <- gbm@model[["cross_validation_predictions"]]
+
+cvpreds <- as.data.frame(h2o.getFrame(model@leader@model[["cross_validation_holdout_predictions_frame_id"]][["name"]]))
+
+#combine with the original data
+predictions <- cbind(cvpreds,train)
+
+#rank by disease predicted score ascending
+predictions$rank <- rank(predictions[,"datereported"])
+predictions<- select(predictions, rank, everything())
+
+#total number of schizophrenic cases
+num_patients <- nrow(predictions[predictions$datereported == "Schizophrenia",])
+total_samples <- nrow(predictions)
+
+#This builds a dataframe for percentile of genetic risk score vs odds ratio
+ordataframe<- predictions %>% mutate(decile = ntile(Schizophrenia, 5)) %>% group_by(decile) %>% 
+  summarize(Normal=summary(datereported)[["Normal"]], 
+            Schizophrenia=summary(datereported)[["Schizophrenia"]], 
+            OR=(summary(datereported)[["Schizophrenia"]]/summary(datereported)[["Normal"]])/(num_patients/(total_samples-num_patients)),
+            count = n())
+
+#
+# Compute 95% confidence intervals (TCI,BCI) top of ci and bottom of ci
+# based on statperls https://www.ncbi.nlm.nih.gov/books/NBK431098/
+ordataframe$tci<-exp(log(ordataframe$OR)+
+                       1.96*sqrt(
+                         (1/(ordataframe$Schizophrenia+1))+
+                           (1/(ordataframe$Normal+1))+
+                           (1/sum(ordataframe$Schizophrenia))+
+                           (1/sum(ordataframe$Normal))
+                       ))
+ordataframe$bci<-exp(log(ordataframe$OR)-
+                       1.96*sqrt(
+                         (1/(ordataframe$Schizophrenia+1))+
+                           (1/(ordataframe$Normal+1))+
+                           (1/sum(ordataframe$Schizophrenia))+
+                           (1/sum(ordataframe$Normal))
+                       ))
+
+ordataframe$xaxis<-sequence(5)
+
+ggplot(ordataframe,aes(x=xaxis,y=OR)) + 
+  geom_point() +
+  geom_errorbar(aes(ymin=bci, ymax=tci), width=.2,position=position_dodge(0.05)) +
+  ggtitle("Odds Ratio Between Quintiles of Predicted Schizophrenia Patients") +
+  xlab("Quintile") + ylab("Odds Ratio") +
+  theme_bw() + theme(plot.title = element_text(size = 18, face = "bold")) +
+  scale_color_npg()
+
+# Print performance info of leader
+leader@algorithm
+h2o.performance(leader,train=FALSE, xval=TRUE)
+
+# Graceful shutdown of cluster
+h2o.removeAll()
+h2o.shutdown(prompt = FALSE)
+
+###########################################################
+# Create a Model using 64 Split Y & 64 Split X Chromosome #
+###########################################################
+
+# Load h2o
+h2o.init(nthreads=15)
+
+## Create training and validation frames
+condensed <- read.csv("/data/ukbiobank/ukb_l2r_ids_chrY_condensed_64splits.txt", sep = " ")
+condensedX <- read.csv("/data/ukbiobank/ukb_l2r_ids_chrX_condensed_64splits.txt", sep = " ")
+condensed <- rename_with(condensed, ~ toupper(gsub("X", "Y Split ", .x, fixed = TRUE)))
+condensedX <- rename_with(condensedX, ~ toupper(gsub("chrX.X", "X Split ", .x, fixed = TRUE)))
+condensedX <- subset(condensedX, select=-c(IDS))
+condensed <- cbind(condensed, condensedX)
+
+# Schizophrenia data
+my_ukb_data <- ukb_df("ukb39651", path="/data/ukbiobank")
+my_data <- select(my_ukb_data,eid,
+                  datereported = date_f20_first_reported_schizophrenia_f130874_0_0,
+                  sourcereported = source_of_report_of_f20_schizophrenia_f130875_0_0)
+
+# Get age related information
+my_ukb_data_cancer <- ukb_df("ukb29274", path = "/data/ukbiobank/cancer")
+my_data_age <- select(my_ukb_data_cancer, eid, yearBorn = year_of_birth_f34_0_0)
+
+# Merge with CNV data
+all_data <- merge(condensed, my_data, by.x = "IDS", by.y = "eid")
+all_data <- merge(all_data, my_data_age, by.x = "IDS", by.y = "eid")
+
+schiz <- all_data[!is.na(all_data[, "datereported"]),]
+no_schiz_initial <- all_data[is.na(all_data[, "datereported"]),]
+
+# Get breakdown of  patients by age
+schiz_age <- table(schiz$yearBorn)
+
+# Randomly get non disease patients for controls so that there is an equal amount based on age
+# This will ensure that the controls are age-matched to the disease sample
+# For example there are 5 patients born 1937 who have AD so we will randomly grab 5 other 
+# patients born 1937 who do not have AD
+no_schiz <- data.frame(matrix(ncol = ncol(no_schiz_initial), nrow = 0))
+colnames(no_schiz) <- colnames(no_schiz_initial)
+for (i in 1:length(schiz_age)) {
+  temp <- schiz_age[i]
+  age_check <- as.numeric(names(temp))
+  number_cases <- as.numeric(unname(temp))
+  possible_controls <- no_schiz_initial[no_schiz_initial$yearBorn == age_check,]
+  no_schiz <- rbind(no_schiz, possible_controls[sample(nrow(possible_controls), number_cases, replace = TRUE), ])
+}
+
+schiz$datereported <- "Schizophrenia"
+no_schiz$datereported <- "Normal"
+
+ind <- sample(c(TRUE, FALSE), nrow(schiz), replace=TRUE, prob=c(0.7, 0.3)) # Random split
+
+train <- schiz[ind, ]
+validate <- schiz[!ind, ]
+
+controls <- no_schiz #  get controls
+
+train_controls <- controls[ind, ]
+validate_controls <- controls[!ind, ]
+
+# Combine controls with samples
+train <- rbind(train, train_controls)
+validate <- rbind(validate, validate_controls)
+
+# Set response column to factor
+train$datereported <- as.factor(train$datereported)
+validate$datereported <- as.factor(validate$datereported)
+
+#Remove unnecessary columns
+train <- train[,!names(train) %in% c("ids", "sex", "behavior")]
+validate <- validate[,!names(validate) %in% c("ids", "sex", "behavior")]
+
+# Free up data 
+rm(schiz, no_schiz, controls, train_controls, validate_controls)
+rm(my_data, my_ukb_data, my_ukb_data_cancer, my_data_age)
+
+# Load data into h2o
+
+train.hex <- as.h2o(train, destination_frame = "train.hex")  
+validate.hex <- as.h2o(validate, destination_frame = "validate.hex")
+
+#
+#  I usually stop here and goto http://localhost:54321/flow/index.html 
+#  h2o runs a local webserver on port 54321, it offers a nice little interface.
+#  you can run the AutoML from the web browser there and it has some nice features so that 
+# you can monitor the progress of the training.
+
+#Response column
+response <- "datereported"
+#Get Predictors
+predictors <- colnames(train)
+predictors <- predictors[! predictors %in% response] #Response cannot be a predictor
+predictors <- predictors[! predictors %in% "yearBorn"] #Response cannot be a predictor
+predictors <- predictors[! predictors %in% "sourcereported"] #Response cannot be a predictor
+model <- h2o.automl(x = predictors,
+                    y = response,
+                    training_frame = train.hex,
+                    validation_frame = validate.hex,
+                    nfolds = 5,
+                    keep_cross_validation_predictions = TRUE)
+
+#record the Leading model AUC in the dataset
+leader <- model@leader
+auc=h2o.auc(leader, train=FALSE, xval=TRUE)
+
+# Generate explainability plots
+exp_aml <- h2o.explain(model, validate.hex)
+exp_aml
+exp_leader <- h2o.explain(leader, validate.hex)
+exp_leader
+
+# plot out the ROC.  We type out the model and AUC at the top of the ROC.
+mod_perf <- h2o.performance(leader,train=FALSE, xval=TRUE)
+
+
+plot(mod_perf, type='roc', main=paste("Schizophrenia 64-split X & 64-split Y \nChromosome CSLV Model Performance: AUC = ", auc))
+
+# for example I have a list of H2OModels
+list(leader) %>% 
+  # map a function to each element in the list
+  map(function(x) x %>% h2o.performance(valid=T) %>% 
+        # from all these 'paths' in the object
+        .@metrics %>% .$thresholds_and_metric_scores %>% 
+        # extracting true positive rate and false positive rate
+        .[c('tpr','fpr')] %>% 
+        # add (0,0) and (1,1) for the start and end point of ROC curve
+        add_row(tpr=0,fpr=0,.before=T) %>% 
+        add_row(tpr=0,fpr=0,.before=F)) %>% 
+  # add a column of model name for future grouping in ggplot2
+  map2(c('64-Split'),
+       function(x,y) x %>% add_column(model=y)) %>% 
+  # reduce four data.frame to one
+  reduce(rbind) %>% 
+  # plot fpr and tpr, map model to color as grouping
+  ggplot(aes(fpr,tpr,col=model))+
+  geom_line()+
+  geom_segment(aes(x=0,y=0,xend = 1, yend = 1),linetype = 2,col='grey')+
+  xlab('False Positive Rate')+
+  ylab('True Positive Rate')+
+  ggtitle('ROC Curve for 64-Split X & 64-Split Y \nSchizophrenia Model')+
+  annotate("text", x = .75, y = .25, label = paste("AUC =", auc)) + 
+  theme_bw() + theme(plot.title = element_text(size = 18, face = "bold"), plot.margin = margin(1, 1, 1, 1, "cm")) +
+  scale_color_npg()
+
+# Plot Precision-Recall Graph
+metrics <- as.data.frame(h2o.metric(mod_perf))
+metrics %>%
+  ggplot(aes(recall,precision)) + 
+  geom_line() +
+  theme_minimal() + ggtitle("Schizophrenia 64-split X & 64-Split Y\nCSLV Model Precision-Recall") +
+  theme_bw() + theme(plot.title = element_text(size = 18, face = "bold"), plot.margin = margin(1, 1, 1, 1, "cm")) +
+  scale_color_npg()
+
+# Print performance info of leader
+leader@algorithm
+h2o.performance(leader,train=FALSE, xval=TRUE)
+
+# Find Odds ratio
+#cross_val_preds <- gbm@model[["cross_validation_predictions"]]
+
+cvpreds <- as.data.frame(h2o.getFrame(model@leader@model[["cross_validation_holdout_predictions_frame_id"]][["name"]]))
+
+#combine with the original data
+predictions <- cbind(cvpreds,train)
+
+#rank by disease predicted score ascending
+predictions$rank <- rank(predictions[,"datereported"])
+predictions<- select(predictions, rank, everything())
+
+#total number of schizophrenic cases
+num_patients <- nrow(predictions[predictions$datereported == "Schizophrenia",])
+total_samples <- nrow(predictions)
+
+#This builds a dataframe for percentile of genetic risk score vs odds ratio
+ordataframe<- predictions %>% mutate(decile = ntile(Schizophrenia, 5)) %>% group_by(decile) %>% 
+  summarize(Normal=summary(datereported)[["Normal"]], 
+            Schizophrenia=summary(datereported)[["Schizophrenia"]], 
+            OR=(summary(datereported)[["Schizophrenia"]]/summary(datereported)[["Normal"]])/(num_patients/(total_samples-num_patients)),
+            count = n())
+
+#
+# Compute 95% confidence intervals (TCI,BCI) top of ci and bottom of ci
+# based on statperls https://www.ncbi.nlm.nih.gov/books/NBK431098/
+ordataframe$tci<-exp(log(ordataframe$OR)+
+                       1.96*sqrt(
+                         (1/(ordataframe$Schizophrenia+1))+
+                           (1/(ordataframe$Normal+1))+
+                           (1/sum(ordataframe$Schizophrenia))+
+                           (1/sum(ordataframe$Normal))
+                       ))
+ordataframe$bci<-exp(log(ordataframe$OR)-
+                       1.96*sqrt(
+                         (1/(ordataframe$Schizophrenia+1))+
+                           (1/(ordataframe$Normal+1))+
+                           (1/sum(ordataframe$Schizophrenia))+
+                           (1/sum(ordataframe$Normal))
+                       ))
+
+ordataframe$xaxis<-sequence(5)
+
+ggplot(ordataframe,aes(x=xaxis,y=OR)) + 
+  geom_point() +
+  geom_errorbar(aes(ymin=bci, ymax=tci), width=.2,position=position_dodge(0.05)) +
+  ggtitle("Odds Ratio Between Quintiles of \nPredicted Schizophrenia Patients") +
+  xlab("Quintile") + ylab("Odds Ratio") +
+  theme_bw() + theme(plot.title = element_text(size = 18, face = "bold"), plot.margin = margin(1, 1, 1, 1, "cm")) +
+  scale_color_npg()
+
+# Print performance info of leader
+leader@algorithm
+h2o.performance(leader,train=FALSE, xval=TRUE)
+
+# Graceful shutdown of cluster
+h2o.removeAll()
+h2o.shutdown(prompt = FALSE)
+
+###################################################
 # Calculate Confidence Interval for 1 Split Model #
 ###################################################
 
@@ -461,7 +894,7 @@ rm(results8, predictions8, model_types8)
 results <- c()
 predictions <- c()
 model_types <- c()
-numModels <- 150
+numModels <- 100
 maxRuntime <- 60 # This is in seconds
 
 # Run 100 expirements or train 100 Auto ML models using randomized set of training data each time
@@ -667,7 +1100,7 @@ h2o.shutdown(prompt = FALSE)
 results4 <- c()
 predictions4 <- c()
 model_types4 <- c()
-numModels <- 150
+numModels <- 100
 maxRuntime <- 60 # This is in seconds
 
 # Run 100 expirements or train 100 Auto ML models using randomized set of training data each time
@@ -860,7 +1293,7 @@ h2o.shutdown(prompt = FALSE)
 results8 <- c()
 predictions8 <- c()
 model_types8 <- c()
-numModels <- 150
+numModels <- 100
 maxRuntime <- 60 # This is in seconds
 
 # Run 100 expirements or train 100 Auto ML models using randomized set of training data each time
